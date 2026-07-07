@@ -123,7 +123,7 @@ function renderSessions() {
     return `
       <button class="choice-card" data-session="${session.value}" type="button">
         <strong>${session.label}</strong>
-        <span>Սեսիա</span>
+        <span>Ժամ</span>
         <div class="free-count">${count} ազատ տեղ</div>
       </button>
     `;
@@ -182,7 +182,7 @@ function renderSeats() {
     if (booking) {
       btn.classList.add("booked");
       btn.disabled = true;
-      btn.setAttribute("aria-label", `Աթոռ ${i}, զբաղված, ${booking.full_name}`);
+      btn.setAttribute("aria-label", `Նստատեղ ${i}, զբաղված, ${booking.full_name}`);
 
       const name = document.createElement("div");
       name.className = "booked-name";
@@ -190,7 +190,7 @@ function renderSeats() {
 
       wrap.append(btn, name);
     } else {
-      btn.setAttribute("aria-label", `Աթոռ ${i}, ազատ`);
+      btn.setAttribute("aria-label", `Նստատեղ ${i}, ազատ`);
       if (state.selectedSeat === i) btn.classList.add("selected");
       btn.addEventListener("click", () => selectSeat(i));
       wrap.append(btn);
@@ -202,12 +202,12 @@ function renderSeats() {
 
 function selectSeat(seatNumber) {
   if (!state.selectedDay || !state.selectedSession) {
-    showToast("Նախ ընտրեք օրը և սեսիան։");
+    showToast("Նախ ընտրեք օրը և ժամը։");
     return;
   }
 
   if (findBooking(seatNumber)) {
-    showToast("Այս աթոռն արդեն զբաղված է։", "error");
+    showToast("Այս նստատեղը արդեն զբաղված է։", "error");
     return;
   }
 
@@ -240,7 +240,7 @@ function updateSummary() {
   const day = TRAINING_DAYS.find(d => d.value === state.selectedDay)?.label;
   const session = getSessionsForSelectedDay().find(s => s.value === state.selectedSession)?.label;
   const name = els.fullName.value.trim();
-  const seat = state.selectedSeat ? `Աթոռ ${state.selectedSeat}` : null;
+  const seat = state.selectedSeat ? `Նստատեղ ${state.selectedSeat}` : null;
 
   const existingBooking = getExistingBooking(name);
 
@@ -250,7 +250,7 @@ function updateSummary() {
 
   els.bookingSummary.textContent = parts.length
     ? parts.join(" · ")
-    : "Օրը, սեսիան և աթոռը դեռ ընտրված չեն։";
+    : "Օրը, ժամը և նստատեղը դեռ ընտրված չեն։";
 
   els.bookBtn.disabled = !(
     name.length >= 2 &&
@@ -303,7 +303,7 @@ if (isAlreadyBooked(name)) {
   };
 
   if (!payload.training_day || !payload.session_time || !payload.seat_number) {
-    showToast("Ընտրեք օրը, սեսիան և ազատ աթոռը։", "error");
+    showToast("Ընտրեք օրը, ժամը և ազատ նստատեղը։", "error");
     return;
   }
 
