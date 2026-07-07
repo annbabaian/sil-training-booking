@@ -20,7 +20,6 @@ const adminEls = {
   editDialog: document.getElementById("editDialog"),
   editId: document.getElementById("editId"),
   editFullName: document.getElementById("editFullName"),
-  editDepartment: document.getElementById("editDepartment"),
   editDay: document.getElementById("editDay"),
   editSession: document.getElementById("editSession"),
   editSeat: document.getElementById("editSeat"),
@@ -35,7 +34,25 @@ function getAllTrainingSessions() {
 function getTotalCapacity() {
   return Object.values(TRAINING_SESSIONS).flat().length * TOTAL_SEATS;
 }
+function getSessionsForDay(dayValue) {
+  return TRAINING_SESSIONS[dayValue] || [];
+}
 
+function populateEditSessions(dayValue, selectedSession = "") {
+  const sessions = getSessionsForDay(dayValue);
+  adminEls.editSession.innerHTML = "";
+
+  sessions.forEach(session => {
+    adminEls.editSession.insertAdjacentHTML(
+      "beforeend",
+      `<option value="${session.value}">${session.label}</option>`
+    );
+  });
+
+  if (selectedSession) {
+    adminEls.editSession.value = selectedSession;
+  }
+}
 function initAdmin() {
   populateFilters();
   bindAdminEvents();
@@ -51,9 +68,8 @@ function populateFilters() {
 
   getAllTrainingSessions().forEach(session => {
     adminEls.sessionFilter.insertAdjacentHTML("beforeend", `<option value="${session.value}">${session.label}</option>`);
-    adminEls.editSession.insertAdjacentHTML("beforeend", `<option value="${session.value}">${session.label}</option>`);
   });
-}
+} 
 
 function bindAdminEvents() {
   [adminEls.nameSearch, adminEls.departmentSearch, adminEls.dayFilter, adminEls.sessionFilter].forEach(el => {
@@ -66,6 +82,10 @@ function bindAdminEvents() {
   adminEls.exportBtn.addEventListener("click", exportCsvForExcel);
   adminEls.cancelEditBtn.addEventListener("click", () => adminEls.editDialog.close());
   adminEls.editDialog.querySelector("form").addEventListener("submit", saveEdit);
+
+  adminEls.editDay.addEventListener("change", () => {
+    populateEditSessions(adminEls.editDay.value);
+  });
 }
 
 function showAdminToast(message) {
@@ -154,13 +174,18 @@ function handleRowAction(action, id) {
 }
 
 function openEditDialog(booking) {
-  adminEls.editId.value = booking.id;
-  adminEls.editFullName.value = booking.full_name;
-  adminEls.editDepartment.value = booking.department || "";
-  adminEls.editDay.value = booking.training_day;
-  adminEls.editSession.value = booking.session_time;
-  adminEls.editSeat.value = booking.seat_number;
-  adminEls.editDialog.showModal();
+adminEls.editId.value = booking.id;
+adminEls.editFullName.value = booking.full_name;
+adminEls.editDay.value = booking.training_day;
+
+populateEditSessions(
+  booking.training_day,
+  booking.session_time
+);
+
+adminEls.editSeat.value = booking.seat_number;
+adminEls.editDialog.showModal();
+
 }
 
 async function saveEdit(event) {
@@ -170,7 +195,7 @@ async function saveEdit(event) {
 
   const payload = {
     full_name: adminEls.editFullName.value.trim(),
-    department: adminEls.editDepartment.value.trim(),
+    department: "",
     training_day: adminEls.editDay.value,
     session_time: adminEls.editSession.value,
     seat_number: Number(adminEls.editSeat.value),
