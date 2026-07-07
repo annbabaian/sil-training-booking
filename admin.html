@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="hy">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin · Նստատեղերի ամրագրումներ</title>
+  <link rel="stylesheet" href="admin.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<script>
+  const ADMIN_PASSWORD = "Sil2026";
+
+  const enteredPassword = prompt("Մուտքագրեք admin գաղտնաբառը");
+
+  if (enteredPassword !== ADMIN_PASSWORD) {
+    alert("Սխալ գաղտնաբառ");
+    window.location.href = "index.html";
+  }
+</script>
+  <div class="admin-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Admin panel</p>
+        <h1>Ամրագրումների կառավարում</h1>
+      </div>
+      <a href="index.html" class="back-link">Booking էջ</a>
+    </header>
+
+    <section class="stats-grid">
+      <div class="stat-card"><span>Ընդամենը</span><strong id="totalCount">0</strong></div>
+      <div class="stat-card"><span>Այս ֆիլտրով</span><strong id="filteredCount">0</strong></div>
+      <div class="stat-card"><span>Ազատ տեղեր</span><strong id="freeCount">140</strong></div>
+    </section>
+
+    <section class="filters-card">
+      <label><span>Որոնում անունով</span><input id="nameSearch" type="search" placeholder="օր․ Աննա" /></label>
+      <label><span>Որոնում բաժնով</span><input id="departmentSearch" type="search" placeholder="օր․ Ակտուարական" /></label>
+      <label><span>Օր</span><select id="dayFilter"><option value="">Բոլոր օրերը</option></select></label>
+      <label><span>Սեսիա</span><select id="sessionFilter"><option value="">Բոլոր սեսիաները</option></select></label>
+      <button id="resetBtn" class="ghost-btn" type="button">Մաքրել</button>
+      <button id="exportBtn" class="dark-btn" type="button">Excel export</button>
+    </section>
+
+    <section class="table-card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Անուն ազգանուն</th>
+              <th>Բաժնի անվանում</th>
+              <th>Օր</th>
+              <th>Սեսիա</th>
+              <th>Աթոռ</th>
+              <th>Ամսաթիվ</th>
+              <th>Գործողություն</th>
+            </tr>
+          </thead>
+          <tbody id="bookingsTbody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty hidden">Ամրագրումներ չկան։</div>
+    </section>
+  </div>
+
+  <dialog id="editDialog" class="edit-dialog">
+    <form method="dialog" class="edit-form">
+      <h2>Խմբագրել ամրագրումը</h2>
+      <input type="hidden" id="editId" />
+      <label><span>Անուն ազգանուն</span><input id="editFullName" type="text" required /></label>
+      <label><span>Բաժնի անվանում</span><input id="editDepartment" type="text" required /></label>
+      <label><span>Օր</span><select id="editDay" required></select></label>
+      <label><span>Սեսիա</span><select id="editSession" required></select></label>
+      <label><span>Աթոռ</span><input id="editSeat" type="number" min="1" max="14" required /></label>
+      <div class="dialog-actions">
+        <button class="ghost-btn" value="cancel" type="button" id="cancelEditBtn">Չեղարկել</button>
+        <button class="dark-btn" value="default" type="submit">Պահպանել</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="supabase.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
