@@ -78,6 +78,10 @@ function isAlreadyBooked(name) {
   return state.bookings.some(item => item.full_name === name);
 }
 
+function getExistingBooking(name) {
+  return state.bookings.find(item => item.full_name === name);
+}
+
 function getSessionsForSelectedDay() {
   if (!state.selectedDay) return [];
   return TRAINING_SESSIONS[state.selectedDay] || [];
@@ -232,14 +236,24 @@ function getFreeSeatsCount(day, session) {
 
   return Math.max(TOTAL_SEATS - used, 0);
 }
-
 function updateSummary() {
   const day = TRAINING_DAYS.find(d => d.value === state.selectedDay)?.label;
   const session = getSessionsForSelectedDay().find(s => s.value === state.selectedSession)?.label;
   const name = els.fullName.value.trim();
   const seat = state.selectedSeat ? `Աթոռ ${state.selectedSeat}` : null;
 
+  const existingBooking = getExistingBooking(name);
+
+  if (name && existingBooking) {
+    els.bookingSummary.textContent =
+      `✅ ${name}, դուք արդեն գրանցված եք · ${formatDay(existingBooking.training_day)} · ${formatSession(existingBooking.session_time)} · Աթոռ ${existingBooking.seat_number}`;
+
+    els.bookBtn.disabled = true;
+    return;
+  }
+
   const parts = [name, day, session, seat].filter(Boolean);
+
   els.bookingSummary.textContent = parts.length
     ? parts.join(" · ")
     : "Օրը, սեսիան և աթոռը դեռ ընտրված չեն։";
@@ -253,6 +267,7 @@ function updateSummary() {
     state.selectedSeat
   );
 }
+
 
 async function loadBookings() {
   const { data, error } = await db
@@ -337,5 +352,12 @@ function subscribeRealtime() {
 }
 
 window.addEventListener("resize", () => renderSeats());
+function formatDay(value) {
+  return TRAINING_DAYS.find(day => day.value === value)?.label || value;
+}
 
+function formatSession(value) {
+  const allSessions = Object.values(TRAINING_SESSIONS).flat();
+  return allSessions.find(session => session.value === value)?.label || value;
+}
 init();
