@@ -141,21 +141,20 @@ function renderAdminTable() {
   adminEls.empty.classList.toggle("hidden", adminState.filtered.length > 0);
 
   adminEls.tbody.innerHTML = adminState.filtered.map(item => `
-    <tr>
-      <td>${escapeHtml(item.full_name)}</td>
-      <td>${escapeHtml(item.department || "")}</td>
-      <td>${formatDay(item.training_day)}</td>
-      <td>${formatSession(item.session_time)}</td>
-      <td>${item.seat_number}</td>
-      <td>${formatDateTime(item.created_at)}</td>
-      <td>
-        <div class="actions">
-          <button class="blue-btn" type="button" data-action="edit" data-id="${item.id}">Խմբագրել</button>
-          <button class="ghost-btn" type="button" data-action="free" data-id="${item.id}">Ազատել աթոռը</button>
-          <button class="danger-btn" type="button" data-action="delete" data-id="${item.id}">Ջնջել</button>
-        </div>
-      </td>
-    </tr>
+<tr>
+  <td>${escapeHtml(item.full_name)}</td>
+  <td>${formatDay(item.training_day)}</td>
+  <td>${formatSession(item.session_time)}</td>
+  <td>${item.seat_number}</td>
+  <td>${formatDateTime(item.created_at)}</td>
+  <td>
+    <div class="actions">
+      <button class="blue-btn" type="button" data-action="edit" data-id="${item.id}">Խմբագրել</button>
+      <button class="ghost-btn" type="button" data-action="free" data-id="${item.id}">Ազատել աթոռը</button>
+      <button class="danger-btn" type="button" data-action="delete" data-id="${item.id}">Ջնջել</button>
+    </div>
+  </td>
+</tr>
   `).join("");
 
   adminEls.tbody.querySelectorAll("button[data-action]").forEach(btn => {
