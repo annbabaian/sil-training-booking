@@ -187,27 +187,52 @@ function resetFilters() {
   applyFilters();
 }
 
-function exportCsvForExcel() {
-  const headers = ["Անուն ազգանուն", "Բաժնի անվանում", "Օր", "Սեսիա", "Աթոռ", "Ամսաթիվ"];
-  const rows = adminState.filtered.map(item => [
-    item.full_name,
-    item.department,
-    formatDay(item.training_day),
-    formatSession(item.session_time),
-    item.seat_number,
-    formatDateTime(item.created_at),
-  ]);
+async function exportCsvForExcel() {
+  const { data: employees, error } = await db
+    .from("employees")
+    .select("full_name")
+    .order("full_name", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    showAdminToast("Չհաջողվեց բեռնել աշխատակիցների ցանկը։");
+    return;
+  }
+
+  const bookingByName = new Map(
+    adminState.bookings.map(item => [item.full_name, item])
+  );
+
+  const headers = ["Անուն ազգանուն", "Գրանցվել է", "Օր", "Սեսիա", "Աթոռ", "Ամսաթիվ"];
+
+  const rows = (employees || []).map(emp => {
+    const booking = bookingByName.get(emp.full_name);
+
+    return [
+      emp.full_name,
+      booking ? "Այո" : "Ոչ",
+      booking ? formatDay(booking.training_day) : "",
+      booking ? formatSession(booking.session_time) : "",
+      booking ? booking.seat_number : "",
+      booking ? formatDateTime(booking.created_at) : "",
+    ];
+  });
+
   const csv = [headers, ...rows]
-    .map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(","))
+    .map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(","))
     .join("\n");
+
   const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
+
   const link = document.createElement("a");
   link.href = url;
-  link.download = `training-bookings-${new Date().toISOString().slice(0,10)}.csv`;
+  link.download = `training-attendance-report-${new Date().toISOString().slice(0,10)}.csv`;
+
   document.body.appendChild(link);
   link.click();
   link.remove();
+
   URL.revokeObjectURL(url);
 }
 
