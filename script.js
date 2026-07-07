@@ -244,13 +244,7 @@ function updateSummary() {
 
   const existingBooking = getExistingBooking(name);
 
-  if (name && existingBooking) {
-    els.bookingSummary.textContent =
-      `✅ ${name}, դուք արդեն գրանցված եք · ${formatDay(existingBooking.training_day)} · ${formatSession(existingBooking.session_time)} · Աթոռ ${existingBooking.seat_number}`;
 
-    els.bookBtn.disabled = true;
-    return;
-  }
 
   const parts = [name, day, session, seat].filter(Boolean);
 
@@ -261,7 +255,7 @@ function updateSummary() {
   els.bookBtn.disabled = !(
     name.length >= 2 &&
     isValidEmployee(name) &&
-    !isAlreadyBooked(name) &&
+   
     state.selectedDay &&
     state.selectedSession &&
     state.selectedSeat
@@ -295,10 +289,10 @@ async function bookSelectedSeat() {
     return;
   }
 
-  if (isAlreadyBooked(name)) {
-    showToast("Այս աշխատակիցն արդեն գրանցված է։", "error");
-    return;
-  }
+if (isAlreadyBooked(name)) {
+  showToast("Ձեր գրանցումն արդեն կատարված է։", "error");
+  return;
+}
 
   const payload = {
     full_name: name,
@@ -320,12 +314,19 @@ async function bookSelectedSeat() {
   if (error) {
     const duplicate = error.code === "23505" || String(error.message).includes("duplicate");
 
-    showToast(
-      duplicate
-        ? "Այս աշխատակիցը կամ աթոռը արդեն գրանցված է։"
-        : "Ամրագրումը չհաջողվեց։",
-      "error"
-    );
+let errorMessage = "Ամրագրումը չհաջողվեց։";
+
+if (duplicate) {
+  if (String(error.message).includes("unique_training_seat")) {
+    errorMessage = "Այս աթոռը քիչ առաջ արդեն զբաղեցվեց։ Ընտրեք ուրիշ աթոռ։";
+  } else if (String(error.message).includes("unique_employee_booking")) {
+    errorMessage = "Ձեր գրանցումն արդեն կատարված է։";
+  } else {
+    errorMessage = "Այս տվյալներով ամրագրում արդեն կա։";
+  }
+}
+
+showToast(errorMessage, "error");
 
     await loadBookings();
     return;
