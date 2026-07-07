@@ -27,6 +27,15 @@ const adminEls = {
   cancelEditBtn: document.getElementById("cancelEditBtn"),
 };
 
+function getAllTrainingSessions() {
+  const all = Object.values(TRAINING_SESSIONS).flat();
+  return [...new Map(all.map(item => [item.value, item])).values()];
+}
+
+function getTotalCapacity() {
+  return Object.values(TRAINING_SESSIONS).flat().length * TOTAL_SEATS;
+}
+
 function initAdmin() {
   populateFilters();
   bindAdminEvents();
@@ -39,7 +48,8 @@ function populateFilters() {
     adminEls.dayFilter.insertAdjacentHTML("beforeend", `<option value="${day.value}">${day.label}</option>`);
     adminEls.editDay.insertAdjacentHTML("beforeend", `<option value="${day.value}">${day.label}</option>`);
   });
-  TRAINING_SESSIONS.forEach(session => {
+
+  getAllTrainingSessions().forEach(session => {
     adminEls.sessionFilter.insertAdjacentHTML("beforeend", `<option value="${session.value}">${session.label}</option>`);
     adminEls.editSession.insertAdjacentHTML("beforeend", `<option value="${session.value}">${session.label}</option>`);
   });
@@ -47,9 +57,11 @@ function populateFilters() {
 
 function bindAdminEvents() {
   [adminEls.nameSearch, adminEls.departmentSearch, adminEls.dayFilter, adminEls.sessionFilter].forEach(el => {
+    if (!el) return;
     el.addEventListener("input", applyFilters);
     el.addEventListener("change", applyFilters);
   });
+
   adminEls.resetBtn.addEventListener("click", resetFilters);
   adminEls.exportBtn.addEventListener("click", exportCsvForExcel);
   adminEls.cancelEditBtn.addEventListener("click", () => adminEls.editDialog.close());
@@ -76,19 +88,20 @@ async function loadAdminBookings() {
     showAdminToast("Չհաջողվեց բեռնել տվյալները։");
     return;
   }
+
   adminState.bookings = data || [];
   applyFilters();
 }
 
 function applyFilters() {
   const nameQ = adminEls.nameSearch.value.trim().toLowerCase();
-  const departmentQ = adminEls.departmentSearch.value.trim().toLowerCase();
+  const departmentQ = adminEls.departmentSearch ? adminEls.departmentSearch.value.trim().toLowerCase() : "";
   const day = adminEls.dayFilter.value;
   const session = adminEls.sessionFilter.value;
 
   adminState.filtered = adminState.bookings.filter(item => {
     const byName = !nameQ || item.full_name.toLowerCase().includes(nameQ);
-    const byDepartment = !departmentQ || item.department.toLowerCase().includes(departmentQ);
+    const byDepartment = !departmentQ || String(item.department || "").toLowerCase().includes(departmentQ);
     const byDay = !day || item.training_day === day;
     const bySession = !session || item.session_time === session;
     return byName && byDepartment && byDay && bySession;
@@ -101,15 +114,16 @@ function applyFilters() {
 function renderStats() {
   adminEls.totalCount.textContent = adminState.bookings.length;
   adminEls.filteredCount.textContent = adminState.filtered.length;
-  adminEls.freeCount.textContent = (TRAINING_DAYS.length * TRAINING_SESSIONS.length * TOTAL_SEATS) - adminState.bookings.length;
+  adminEls.freeCount.textContent = getTotalCapacity() - adminState.bookings.length;
 }
 
 function renderAdminTable() {
   adminEls.empty.classList.toggle("hidden", adminState.filtered.length > 0);
+
   adminEls.tbody.innerHTML = adminState.filtered.map(item => `
     <tr>
       <td>${escapeHtml(item.full_name)}</td>
-      <td>${escapeHtml(item.department)}</td>
+      <td>${escapeHtml(item.department || "")}</td>
       <td>${formatDay(item.training_day)}</td>
       <td>${formatSession(item.session_time)}</td>
       <td>${item.seat_number}</td>
@@ -132,14 +146,17 @@ function renderAdminTable() {
 function handleRowAction(action, id) {
   const booking = adminState.bookings.find(item => item.id === id);
   if (!booking) return;
+
   if (action === "edit") openEditDialog(booking);
-  if (action === "free" || action === "delete") deleteBooking(id, action === "free" ? "Աթոռը ազատվեց։" : "Ամրագրումը ջնջվեց։");
+  if (action === "free" || action === "delete") {
+    deleteBooking(id, action === "free" ? "Աթոռը ազատվեց։" : "Ամրագրումը ջնջվեց։");
+  }
 }
 
 function openEditDialog(booking) {
   adminEls.editId.value = booking.id;
   adminEls.editFullName.value = booking.full_name;
-  adminEls.editDepartment.value = booking.department;
+  adminEls.editDepartment.value = booking.department || "";
   adminEls.editDay.value = booking.training_day;
   adminEls.editSession.value = booking.session_time;
   adminEls.editSeat.value = booking.seat_number;
@@ -148,7 +165,9 @@ function openEditDialog(booking) {
 
 async function saveEdit(event) {
   event.preventDefault();
+
   const id = adminEls.editId.value;
+
   const payload = {
     full_name: adminEls.editFullName.value.trim(),
     department: adminEls.editDepartment.value.trim(),
@@ -158,11 +177,13 @@ async function saveEdit(event) {
   };
 
   const { error } = await db.from("training_bookings").update(payload).eq("id", id);
+
   if (error) {
     const duplicate = error.code === "23505" || String(error.message).includes("duplicate");
-    showAdminToast(duplicate ? "Այդ օրվա/սեսիայի այդ աթոռն արդեն զբաղված է։" : "Չհաջողվեց պահպանել։");
+    showAdminToast(duplicate ? "Այդ աշխատակիցը կամ աթոռն արդեն զբաղված է։" : "Չհաջողվեց պահպանել։");
     return;
   }
+
   adminEls.editDialog.close();
   showAdminToast("Փոփոխությունները պահպանվեցին։");
   await loadAdminBookings();
@@ -170,18 +191,20 @@ async function saveEdit(event) {
 
 async function deleteBooking(id, successMessage) {
   const { error } = await db.from("training_bookings").delete().eq("id", id);
+
   if (error) {
     console.error(error);
     showAdminToast("Չհաջողվեց կատարել գործողությունը։");
     return;
   }
+
   showAdminToast(successMessage);
   await loadAdminBookings();
 }
 
 function resetFilters() {
   adminEls.nameSearch.value = "";
-  adminEls.departmentSearch.value = "";
+  if (adminEls.departmentSearch) adminEls.departmentSearch.value = "";
   adminEls.dayFilter.value = "";
   adminEls.sessionFilter.value = "";
   applyFilters();
@@ -199,9 +222,7 @@ async function exportCsvForExcel() {
     return;
   }
 
-  const bookingByName = new Map(
-    adminState.bookings.map(item => [item.full_name, item])
-  );
+  const bookingByName = new Map(adminState.bookings.map(item => [item.full_name, item]));
 
   const headers = ["Անուն ազգանուն", "Գրանցվել է", "Օր", "Սեսիա", "Աթոռ", "Ամսաթիվ"];
 
@@ -227,7 +248,7 @@ async function exportCsvForExcel() {
 
   const link = document.createElement("a");
   link.href = url;
-  link.download = `training-attendance-report-${new Date().toISOString().slice(0,10)}.csv`;
+  link.download = `training-attendance-report-${new Date().toISOString().slice(0, 10)}.csv`;
 
   document.body.appendChild(link);
   link.click();
@@ -245,14 +266,26 @@ function subscribeAdminRealtime() {
 function formatDay(value) {
   return TRAINING_DAYS.find(day => day.value === value)?.label || value;
 }
+
 function formatSession(value) {
-  return TRAINING_SESSIONS.find(session => session.value === value)?.label || value;
+  return getAllTrainingSessions().find(session => session.value === value)?.label || value;
 }
+
 function formatDateTime(value) {
-  return new Intl.DateTimeFormat("hy-AM", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  return new Intl.DateTimeFormat("hy-AM", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
+
 function escapeHtml(value) {
-  return String(value).replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#039;", '"': "&quot;" }[char]));
+  return String(value).replace(/[&<>'"]/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#039;",
+    '"': "&quot;",
+  }[char]));
 }
 
 initAdmin();

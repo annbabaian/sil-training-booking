@@ -20,16 +20,56 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 const TRAINING_DAYS = [
-  { value: "2026-07-08", label: "08 հուլիս 2026", dayName: "Չորեքշաբթի" },
-  { value: "2026-07-09", label: "09 հուլիս 2026", dayName: "Հինգշաբթի" },
-  { value: "2026-07-13", label: "13 հուլիս 2026", dayName: "Երկուշաբթի" },
-  { value: "2026-07-15", label: "15 հուլիս 2026", dayName: "Չորեքշաբթի" },
-  { value: "2026-07-16", label: "16 հուլիս 2026", dayName: "Հինգշաբթի" },
+  {
+    value: "2026-07-08",
+    label: "08 հուլիս 2026",
+    dayName: "Չորեքշաբթի"
+  },
+  {
+    value: "2026-07-09",
+    label: "09 հուլիս 2026",
+    dayName: "Հինգշաբթի"
+  },
+  {
+    value: "2026-07-10",
+    label: "10 հուլիս 2026",
+    dayName: "Ուրբաթ"
+  }
 ];
 
-const TRAINING_SESSIONS = [
-  { value: "11:00-12:00", label: "11:00–12:00" },
-  { value: "15:00-16:00", label: "15:00–16:00" },
-];
+const TRAINING_SESSIONS = {
+  "2026-07-08": [
+    {
+      value: "11:30-12:30",
+      label: "11:30–12:30"
+    },
+    {
+      value: "15:00-16:30",
+      label: "15:00–16:30"
+    }
+  ],
+
+  "2026-07-09": [
+    {
+      value: "11:00-12:30",
+      label: "11:00–12:30"
+    },
+    {
+      value: "15:00-16:30",
+      label: "15:00–16:30"
+    }
+  ],
+
+  "2026-07-10": [
+    {
+      value: "15:00-16:30",
+      label: "15:00–16:30"
+    },
+    {
+      value: "16:30-18:00",
+      label: "16:30–18:00"
+    }
+  ]
+};
 
 const TOTAL_SEATS = 14;

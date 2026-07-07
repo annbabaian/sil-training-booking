@@ -78,6 +78,11 @@ function isAlreadyBooked(name) {
   return state.bookings.some(item => item.full_name === name);
 }
 
+function getSessionsForSelectedDay() {
+  if (!state.selectedDay) return [];
+  return TRAINING_SESSIONS[state.selectedDay] || [];
+}
+
 function renderDays() {
   els.daysGrid.innerHTML = TRAINING_DAYS.map(day => `
     <button class="choice-card" data-day="${day.value}" type="button">
@@ -106,10 +111,13 @@ function renderDays() {
 }
 
 function renderSessions() {
-  els.sessionsGrid.innerHTML = TRAINING_SESSIONS.map(session => {
+  const sessions = getSessionsForSelectedDay();
+
+  els.sessionsGrid.innerHTML = sessions.map(session => {
     const count = getFreeSeatsCount(state.selectedDay, session.value);
+
     return `
-      <button class="choice-card" data-session="${session.value}" type="button" ${!state.selectedDay ? "disabled" : ""}>
+      <button class="choice-card" data-session="${session.value}" type="button">
         <strong>${session.label}</strong>
         <span>Սեսիա</span>
         <div class="free-count">${count} ազատ տեղ</div>
@@ -227,7 +235,7 @@ function getFreeSeatsCount(day, session) {
 
 function updateSummary() {
   const day = TRAINING_DAYS.find(d => d.value === state.selectedDay)?.label;
-  const session = TRAINING_SESSIONS.find(s => s.value === state.selectedSession)?.label;
+  const session = getSessionsForSelectedDay().find(s => s.value === state.selectedSession)?.label;
   const name = els.fullName.value.trim();
   const seat = state.selectedSeat ? `Աթոռ ${state.selectedSeat}` : null;
 
