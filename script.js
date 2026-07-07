@@ -3,12 +3,12 @@ const state = {
   selectedSession: null,
   selectedSeat: null,
   bookings: [],
+  employees: [],
   realtimeChannel: null,
 };
 
 const els = {
   fullName: document.getElementById("fullName"),
-  department: document.getElementById("department"),
   daysGrid: document.getElementById("daysGrid"),
   sessionsGrid: document.getElementById("sessionsGrid"),
   seatSection: document.getElementById("seatSection"),
@@ -19,17 +19,26 @@ const els = {
 };
 
 function init() {
+  createEmployeeList();
   renderDays();
   renderSessions();
   renderSeats();
   bindEvents();
+  loadEmployees();
   loadBookings();
   subscribeRealtime();
 }
 
+function createEmployeeList() {
+  const list = document.createElement("datalist");
+  list.id = "employeesList";
+  document.body.appendChild(list);
+  els.fullName.setAttribute("list", "employeesList");
+  els.fullName.placeholder = "Սկսեք գրել անունը...";
+}
+
 function bindEvents() {
   els.fullName.addEventListener("input", updateSummary);
-  els.department.addEventListener("input", updateSummary);
   els.bookBtn.addEventListener("click", bookSelectedSeat);
 }
 
@@ -39,6 +48,34 @@ function showToast(message, type = "info") {
   els.toast.classList.add("show");
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => els.toast.classList.remove("show"), 3200);
+}
+
+async function loadEmployees() {
+  const { data, error } = await db
+    .from("employees")
+    .select("full_name")
+    .order("full_name", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    showToast("Չհաջողվեց բեռնել աշխատակիցների ցանկը։", "error");
+    return;
+  }
+
+  state.employees = data || [];
+
+  const list = document.getElementById("employeesList");
+  list.innerHTML = state.employees
+    .map(emp => `<option value="${emp.full_name}"></option>`)
+    .join("");
+}
+
+function isValidEmployee(name) {
+  return state.employees.some(emp => emp.full_name === name);
+}
+
+function isAlreadyBooked(name) {
+  return state.bookings.some(item => item.full_name === name);
 }
 
 function renderDays() {
@@ -86,6 +123,7 @@ function renderSessions() {
         showToast("Նախ ընտրեք դասընթացի օրը։");
         return;
       }
+
       state.selectedSession = card.dataset.session;
       state.selectedSeat = null;
       renderSessions();
@@ -104,10 +142,11 @@ function renderSessions() {
 
 function renderSeats() {
   els.seatMap.querySelectorAll(".seat-wrap").forEach(node => node.remove());
+
   const centerX = 50;
   const centerY = 50;
-  const radiusX = window.innerWidth < 520 ? 42 : window.innerWidth < 900 ? 43 : 42;
-  const radiusY = window.innerWidth < 520 ? 38 : window.innerWidth < 900 ? 38 : 39;
+  const radiusX = window.innerWidth < 520 ? 42 : 42;
+  const radiusY = window.innerWidth < 520 ? 38 : 39;
 
   for (let i = 1; i <= TOTAL_SEATS; i++) {
     const angle = -90 + ((i - 1) * 360 / TOTAL_SEATS);
@@ -115,6 +154,7 @@ function renderSeats() {
     const x = centerX + radiusX * Math.cos(rad);
     const y = centerY + radiusY * Math.sin(rad);
     const booking = findBooking(i);
+
     const wrap = document.createElement("div");
     wrap.className = "seat-wrap";
     wrap.style.left = `${x}%`;
@@ -123,7 +163,6 @@ function renderSeats() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "seat";
-    btn.setAttribute("aria-label", booking ? `Աթոռ ${i}, զբաղված, ${booking.full_name}` : `Աթոռ ${i}, ազատ`);
     btn.dataset.seat = String(i);
     btn.style.transform = `rotate(${angle + 90}deg)`;
     btn.innerHTML = `<span class="arm left"></span><span class="arm right"></span><span class="num">${i}</span>`;
@@ -131,11 +170,15 @@ function renderSeats() {
     if (booking) {
       btn.classList.add("booked");
       btn.disabled = true;
+      btn.setAttribute("aria-label", `Աթոռ ${i}, զբաղված, ${booking.full_name}`);
+
       const name = document.createElement("div");
       name.className = "booked-name";
       name.textContent = booking.full_name;
+
       wrap.append(btn, name);
     } else {
+      btn.setAttribute("aria-label", `Աթոռ ${i}, ազատ`);
       if (state.selectedSeat === i) btn.classList.add("selected");
       btn.addEventListener("click", () => selectSeat(i));
       wrap.append(btn);
@@ -150,10 +193,12 @@ function selectSeat(seatNumber) {
     showToast("Նախ ընտրեք օրը և սեսիան։");
     return;
   }
+
   if (findBooking(seatNumber)) {
     showToast("Այս աթոռն արդեն զբաղված է։", "error");
     return;
   }
+
   state.selectedSeat = seatNumber;
   renderSeats();
   updateSummary();
@@ -161,6 +206,7 @@ function selectSeat(seatNumber) {
 
 function findBooking(seatNumber) {
   if (!state.selectedDay || !state.selectedSession) return null;
+
   return state.bookings.find(item =>
     item.training_day === state.selectedDay &&
     item.session_time === state.selectedSession &&
@@ -170,7 +216,12 @@ function findBooking(seatNumber) {
 
 function getFreeSeatsCount(day, session) {
   if (!day) return TOTAL_SEATS;
-  const used = state.bookings.filter(item => item.training_day === day && item.session_time === session).length;
+
+  const used = state.bookings.filter(item =>
+    item.training_day === day &&
+    item.session_time === session
+  ).length;
+
   return Math.max(TOTAL_SEATS - used, 0);
 }
 
@@ -178,11 +229,21 @@ function updateSummary() {
   const day = TRAINING_DAYS.find(d => d.value === state.selectedDay)?.label;
   const session = TRAINING_SESSIONS.find(s => s.value === state.selectedSession)?.label;
   const name = els.fullName.value.trim();
-  const department = els.department.value.trim();
   const seat = state.selectedSeat ? `Աթոռ ${state.selectedSeat}` : null;
-  const parts = [name, department, day, session, seat].filter(Boolean);
-  els.bookingSummary.textContent = parts.length ? parts.join(" · ") : "Օրը, սեսիան և աթոռը դեռ ընտրված չեն։";
-  els.bookBtn.disabled = !(name.length >= 2 && department.length >= 2 && state.selectedDay && state.selectedSession && state.selectedSeat);
+
+  const parts = [name, day, session, seat].filter(Boolean);
+  els.bookingSummary.textContent = parts.length
+    ? parts.join(" · ")
+    : "Օրը, սեսիան և աթոռը դեռ ընտրված չեն։";
+
+  els.bookBtn.disabled = !(
+    name.length >= 2 &&
+    isValidEmployee(name) &&
+    !isAlreadyBooked(name) &&
+    state.selectedDay &&
+    state.selectedSession &&
+    state.selectedSeat
+  );
 }
 
 async function loadBookings() {
@@ -193,57 +254,80 @@ async function loadBookings() {
 
   if (error) {
     console.error(error);
-    showToast("Չհաջողվեց բեռնել ամրագրումները։ Ստուգեք Supabase կարգավորումները։", "error");
+    showToast("Չհաջողվեց բեռնել ամրագրումները։", "error");
     return;
   }
+
   state.bookings = data || [];
   renderSessions();
   renderSeats();
+  updateSummary();
 }
 
 async function bookSelectedSeat() {
+  const name = els.fullName.value.trim();
+
+  if (!isValidEmployee(name)) {
+    showToast("Խնդրում ենք ընտրել անունը աշխատակիցների ցանկից։", "error");
+    return;
+  }
+
+  if (isAlreadyBooked(name)) {
+    showToast("Այս աշխատակիցն արդեն գրանցված է։", "error");
+    return;
+  }
+
   const payload = {
-    full_name: els.fullName.value.trim(),
-    department: els.department.value.trim(),
+    full_name: name,
+    department: "",
     training_day: state.selectedDay,
     session_time: state.selectedSession,
     seat_number: state.selectedSeat,
   };
 
-  if (!payload.full_name || !payload.department || !payload.training_day || !payload.session_time || !payload.seat_number) {
-    showToast("Լրացրեք բոլոր դաշտերը և ընտրեք ազատ աթոռ։", "error");
+  if (!payload.training_day || !payload.session_time || !payload.seat_number) {
+    showToast("Ընտրեք օրը, սեսիան և ազատ աթոռը։", "error");
     return;
   }
 
   els.bookBtn.disabled = true;
+
   const { error } = await db.from("training_bookings").insert(payload);
 
   if (error) {
     const duplicate = error.code === "23505" || String(error.message).includes("duplicate");
-    showToast(duplicate ? "Այս աթոռը քիչ առաջ արդեն զբաղեցվեց։ Ընտրեք ուրիշ աթոռ։" : "Ամրագրումը չհաջողվեց։", "error");
+
+    showToast(
+      duplicate
+        ? "Այս աշխատակիցը կամ աթոռը արդեն գրանցված է։"
+        : "Ամրագրումը չհաջողվեց։",
+      "error"
+    );
+
     await loadBookings();
-    updateSummary();
     return;
   }
 
   showToast("Ամրագրումը հաջողությամբ պահպանվեց։", "success");
   state.selectedSeat = null;
   await loadBookings();
-  updateSummary();
 }
 
 function subscribeRealtime() {
   state.realtimeChannel = db.channel("training-bookings-realtime")
     .on("postgres_changes", { event: "*", schema: "public", table: "training_bookings" }, async () => {
       await loadBookings();
+
       if (state.selectedSeat && findBooking(state.selectedSeat)) {
         state.selectedSeat = null;
         showToast("Ձեր ընտրած աթոռը զբաղեցվեց մեկ ուրիշի կողմից։", "error");
       }
+
       updateSummary();
     })
     .subscribe();
 }
 
 window.addEventListener("resize", () => renderSeats());
+
 init();
