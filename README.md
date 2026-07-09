@@ -78,3 +78,5 @@ unique (training_day, session_time, seat_number)
 ```
 
 So if two users try to book the same seat at the same time, only the first insert succeeds.
+
+
