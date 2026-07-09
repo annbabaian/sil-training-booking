@@ -55,8 +55,8 @@ const TRAINING_SESSIONS = {
       label: "11:00–12:30"
     },
     {
-      value: "15:00-16:30",
-      label: "15:00–16:30"
+      value: "15:30-17:00",
+      label: "<span class='old-time'>15:00–16:30</span><span class='new-time'>15:30–17:00</span>"
     }
   ],
 
