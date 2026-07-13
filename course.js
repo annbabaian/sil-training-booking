@@ -4,17 +4,27 @@ async function init(){
   try{state=await getCourseFull(courseId);const c=state.course;document.title=c.title+' | SIL Academy';courseTitle.textContent=(c.icon||'🎓')+' '+c.title;courseDescription.textContent=c.description||'';tableTitle.textContent=c.title;setupEmployeePicker();renderDays();renderSpeakers();renderSections();subscribe()}catch(e){console.error(e);document.body.innerHTML='<div class="app-shell"><h1>Դասընթացը չի գտնվել</h1><a href="index.html">Վերադառնալ</a></div>'}}
 
 function setupEmployeePicker(){
-  const names=state.employees.map(x=>x.full_name).sort((a,b)=>a.localeCompare(b,'hy'));
+  const names=state.employees.map(x=>x.full_name).filter(Boolean).sort((a,b)=>a.localeCompare(b,'hy'));
+  function normalize(value){return String(value||'').trim().toLocaleLowerCase('hy')}
   function renderSuggestions(){
-    const q=employeeInput.value.trim().toLocaleLowerCase('hy');
-    const matches=names.filter(n=>!q||n.toLocaleLowerCase('hy').includes(q)).slice(0,30);
-    employeeSuggestions.innerHTML=matches.map(n=>`<button type="button" class="employee-suggestion">${esc(n)}</button>`).join('')||'<div class="employee-no-result">Անուն չի գտնվել</div>';
+    const q=normalize(employeeInput.value);
+    const matches=names.filter(n=>!q||normalize(n).includes(q)).slice(0,40);
+    employeeSuggestions.innerHTML=matches.map(n=>`<button type="button" class="employee-suggestion" data-name="${esc(n)}">${esc(n)}</button>`).join('')||'<div class="employee-no-result">Անուն չի գտնվել</div>';
     employeeSuggestions.classList.remove('hidden');
-    employeeSuggestions.querySelectorAll('.employee-suggestion').forEach(b=>b.onclick=()=>{employeeInput.value=b.textContent;employeeSuggestions.classList.add('hidden');updateSummary();});
+  }
+  function chooseSuggestion(target){
+    const button=target.closest('.employee-suggestion');
+    if(!button)return;
+    employeeInput.value=button.dataset.name||button.textContent.trim();
+    employeeSuggestions.classList.add('hidden');
+    updateSummary();
   }
   employeeInput.addEventListener('focus',renderSuggestions);
-  employeeInput.addEventListener('input',()=>{renderSuggestions();updateSummary();});
-  document.addEventListener('click',e=>{if(!e.target.closest('.employee-picker'))employeeSuggestions.classList.add('hidden')});
+  employeeInput.addEventListener('input',()=>{renderSuggestions();updateSummary()});
+  employeeSuggestions.addEventListener('pointerdown',e=>{e.preventDefault();chooseSuggestion(e.target)});
+  employeeSuggestions.addEventListener('touchstart',e=>{e.preventDefault();chooseSuggestion(e.target)},{passive:false});
+  employeeSuggestions.addEventListener('click',e=>chooseSuggestion(e.target));
+  document.addEventListener('pointerdown',e=>{if(!e.target.closest('.employee-picker'))employeeSuggestions.classList.add('hidden')});
 }
 
 function renderSpeakers(){
