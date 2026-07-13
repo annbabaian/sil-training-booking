@@ -25,8 +25,10 @@
         <div class="form-grid single-column">
           <label class="field">
             <span>Անուն ազգանուն</span>
-            <input id="employeeInput" list="employeesList" placeholder="Ընտրեք կամ գրեք անունը" autocomplete="off" />
-            <datalist id="employeesList"></datalist>
+            <div class="employee-picker">
+              <input id="employeeInput" placeholder="Սկսեք գրել անունը" autocomplete="off" />
+              <div id="employeeSuggestions" class="employee-suggestions hidden"></div>
+            </div>
           </label>
         </div>
       </section>

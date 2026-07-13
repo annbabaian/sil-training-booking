@@ -23,7 +23,25 @@ async function renderBookings(){const {data,error}=await sb.from('academy_bookin
 async function openMove(id,rows){moving=rows.find(x=>x.id===id);moveBookingInfo.textContent=`${moving.employee_name} — ${moving.course_title}, ${formatDate(moving.session_date)}, ${moving.session_time}`;const {data}=await sb.from('academy_sessions_view').select('*').order('session_date');moveTargetSession.innerHTML=(data||[]).map(s=>`<option value="${s.id}" ${s.id===moving.session_id?'selected':''}>${esc(s.course_title)} — ${formatDate(s.session_date)} — ${esc(s.session_time)} (${s.free_seats} ազատ)</option>`).join('');moveBookingModal.classList.remove('hidden')}
 function closeMove(){moveBookingModal.classList.add('hidden');moving=null}closeMoveModal.onclick=cancelMoveBooking.onclick=closeMove;
 confirmMoveBooking.onclick=async()=>{const sessionId=moveTargetSession.value;if(!moving||sessionId===moving.session_id)return toast('Ընտրեք այլ սեսիա');const {data:s}=await sb.from('academy_sessions').select('*').eq('id',sessionId).single();const {data:used}=await sb.from('academy_bookings').select('seat_no').eq('session_id',sessionId);const occ=new Set((used||[]).map(x=>x.seat_no));let seat=moving.seat_no;if(occ.has(seat)){seat=Array.from({length:s.seats},(_,i)=>i+1).find(x=>!occ.has(x))}if(!seat)return toast('Այս սեսիայում ազատ տեղ չկա');const {error}=await sb.from('academy_bookings').update({course_id:s.course_id,session_id:sessionId,seat_no:seat}).eq('id',moving.id);if(error)return toast(error.message);closeMove();renderBookings();toast('Մասնակիցը տեղափոխվեց')};
-exportCsvBtn.onclick=async()=>{const {data}=await sb.from('academy_bookings_view').select('*');const rows=[['Մասնակից','Դասընթաց','Օր','Ժամ','Նստատեղ'],...(data||[]).map(x=>[x.employee_name,x.course_title,x.session_date,x.session_time,x.seat_no])];const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='sil-academy-registrations.csv';a.click()};
+exportCsvBtn.onclick=async()=>{
+  const [{data:employees,error:e1},{data:bookings,error:e2}]=await Promise.all([
+    sb.from('academy_employees').select('full_name').order('full_name'),
+    sb.from('academy_bookings_view').select('*').order('created_at')
+  ]);
+  if(e1||e2)return toast((e1||e2).message);
+  const byName=new Map();
+  (bookings||[]).forEach(b=>{const key=(b.employee_name||'').trim().toLocaleLowerCase('hy');if(!byName.has(key))byName.set(key,[]);byName.get(key).push(b)});
+  const rows=[['Մասնակից','Կարգավիճակ','Դասընթաց','Օր','Ժամ','Նստատեղ']];
+  (employees||[]).forEach(emp=>{
+    const list=byName.get(emp.full_name.trim().toLocaleLowerCase('hy'))||[];
+    if(!list.length)rows.push([emp.full_name,'Չգրանցված','','','','']);
+    else list.forEach((b,i)=>rows.push([i===0?emp.full_name:'','Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
+  });
+  const employeeKeys=new Set((employees||[]).map(x=>x.full_name.trim().toLocaleLowerCase('hy')));
+  (bookings||[]).filter(b=>!employeeKeys.has((b.employee_name||'').trim().toLocaleLowerCase('hy'))).forEach(b=>rows.push([b.employee_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
+  const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='sil-academy-all-employees.csv';a.click();URL.revokeObjectURL(a.href);
+};
 
 
 function renderCourseSpeakers(){
