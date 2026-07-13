@@ -29,29 +29,88 @@ exportCsvBtn.onclick=async()=>{
     sb.from('academy_bookings_view').select('*').order('created_at')
   ]);
   if(e1||e2)return toast((e1||e2).message);
-  const byName=new Map();
-  (bookings||[]).forEach(b=>{const key=(b.employee_name||'').trim().toLocaleLowerCase('hy');if(!byName.has(key))byName.set(key,[]);byName.get(key).push(b)});
-  const rows=[['Մասնակից','Կարգավիճակ','Դասընթաց','Օր','Ժամ','Նստատեղ']];
-  (employees||[]).forEach(emp=>{
-    const list=byName.get(emp.full_name.trim().toLocaleLowerCase('hy'))||[];
-    if(!list.length)rows.push([emp.full_name,'Չգրանցված','','','','']);
-    else{
-  const b = list[0];
-  rows.push([
-    emp.full_name,
-    'Գրանցված',
-    b.course_title,
-    b.session_date,
-    b.session_time,
-    b.seat_no
-  ]);
-}
-  const employeeKeys=new Set((employees||[]).map(x=>x.full_name.trim().toLocaleLowerCase('hy')));
-  (bookings||[]).filter(b=>!employeeKeys.has((b.employee_name||'').trim().toLocaleLowerCase('hy'))).forEach(b=>rows.push([b.employee_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
-  const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='sil-academy-all-employees.csv';a.click();URL.revokeObjectURL(a.href);
-};
 
+  const normalize=name=>(name||'').trim().toLocaleLowerCase('hy');
+  const byName=new Map();
+
+  (bookings||[]).forEach(booking=>{
+    const key=normalize(booking.employee_name);
+    if(!byName.has(key))byName.set(key,[]);
+    byName.get(key).push(booking);
+  });
+
+  const rows=[['Մասնակից','Կարգավիճակ','Դասընթաց','Օր','Ժամ','Նստատեղ']];
+
+  (employees||[]).forEach(employee=>{
+    const list=byName.get(normalize(employee.full_name))||[];
+
+    if(!list.length){
+      rows.push([employee.full_name,'Չգրանցված','','','','']);
+      return;
+    }
+
+    const booking=list[0];
+    rows.push([
+      employee.full_name,
+      'Գրանցված',
+      booking.course_title||'',
+      booking.session_date||'',
+      booking.session_time||'',
+      booking.seat_no??''
+    ]);
+  });
+
+  const employeeKeys=new Set((employees||[]).map(employee=>normalize(employee.full_name)));
+
+  (bookings||[])
+    .filter(booking=>!employeeKeys.has(normalize(booking.employee_name)))
+    .forEach(booking=>{
+      rows.push([
+        booking.employee_name||'',
+        'Գրանցված',
+        booking.course_title||'',
+        booking.session_date||'',
+        booking.session_time||'',
+        booking.seat_no??''
+      ]);
+    });
+
+  const escapeHtml=value=>String(value??'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+
+  const tableRows=rows.map((row,index)=>{
+    const tag=index===0?'th':'td';
+    return `<tr>${row.map(value=>`<${tag}>${escapeHtml(value)}</${tag}>`).join('')}</tr>`;
+  }).join('');
+
+  const excelHtml=`\ufeff<!doctype html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      table{border-collapse:collapse;font-family:Arial,sans-serif}
+      th,td{border:1px solid #999;padding:6px 10px;white-space:nowrap}
+      th{font-weight:bold;background:#eaf0ff}
+    </style>
+  </head>
+  <body>
+    <table>${tableRows}</table>
+  </body>
+  </html>`;
+
+  const blob=new Blob([excelHtml],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='sil-academy-all-employees.xls';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
 
 function renderCourseSpeakers(){
   const selected=new Set((current?.speakers||[]).map(x=>x.id));
