@@ -35,8 +35,17 @@ exportCsvBtn.onclick=async()=>{
   (employees||[]).forEach(emp=>{
     const list=byName.get(emp.full_name.trim().toLocaleLowerCase('hy'))||[];
     if(!list.length)rows.push([emp.full_name,'Չգրանցված','','','','']);
-    else list.forEach((b,i)=>rows.push([i===0?emp.full_name:'','Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
-  });
+    else{
+  const b = list[0];
+  rows.push([
+    emp.full_name,
+    'Գրանցված',
+    b.course_title,
+    b.session_date,
+    b.session_time,
+    b.seat_no
+  ]);
+}
   const employeeKeys=new Set((employees||[]).map(x=>x.full_name.trim().toLocaleLowerCase('hy')));
   (bookings||[]).filter(b=>!employeeKeys.has((b.employee_name||'').trim().toLocaleLowerCase('hy'))).forEach(b=>rows.push([b.employee_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
   const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');
