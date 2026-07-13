@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="hy">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Դասընթաց | SIL Academy</title>
+  <link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
+<body>
+  <div class="app-shell">
+    <header class="hero course-hero">
+      <div class="course-hero-main">
+        <a class="back-link" href="index.html">← Բոլոր դասընթացները</a>
+        <p class="eyebrow">SIL Insurance Academy</p>
+        <h1 id="courseTitle">Դասընթաց</h1>
+        <p id="courseDescription" class="training-title"></p>
+        <p class="subtitle">📅 Ընտրեք օրը, ժամը և սեղմեք ազատ նստատեղի վրա։</p>
+      </div>
+      <aside id="speakerAside" class="speaker-aside hidden"></aside>
+      <a class="admin-link course-admin-link" href="admin.html">Կառավարում</a>
+    </header>
+
+    <main>
+      <section class="panel glass">
+        <div class="form-grid single-column">
+          <label class="field">
+            <span>Անուն ազգանուն</span>
+            <input id="employeeInput" list="employeesList" placeholder="Ընտրեք կամ գրեք անունը" autocomplete="off" />
+            <datalist id="employeesList"></datalist>
+          </label>
+        </div>
+      </section>
+
+      <section class="step-section">
+        <div class="section-head">
+          <span class="step-badge">1</span>
+          <div><h2>Դասընթացի օր</h2><p>Ընտրեք հասանելի օրերից մեկը։</p></div>
+        </div>
+        <div id="daysGrid" class="cards-grid"></div>
+      </section>
+
+      <section id="sessionSection" class="step-section is-muted">
+        <div class="section-head">
+          <span class="step-badge">2</span>
+          <div><h2>Ժամ</h2><p>Տեղերի քանակը թարմացվում է ավտոմատ։</p></div>
+        </div>
+        <div id="sessionsGrid" class="cards-grid session-grid"></div>
+      </section>
+
+      <section id="seatSection" class="step-section hidden">
+        <div class="section-head">
+          <span class="step-badge">3</span>
+          <div><h2>Նստատեղ</h2><p>💺 Ընտրեք նստատեղը։</p></div>
+        </div>
+        <div class="legend">
+          <span><i class="dot free"></i> Ազատ</span>
+          <span><i class="dot selected"></i> Ընտրված</span>
+          <span><i class="dot booked"></i> Զբաղված</span>
+        </div>
+        <div class="room-card glass">
+          <div id="seatMap" class="seat-map">
+            <div class="oval-table">
+              <div class="table-shine"></div>
+              <strong id="tableTitle">Դասընթաց</strong>
+              <span id="seatCountLabel"></span>
+            </div>
+          </div>
+        </div>
+        <div class="booking-bar glass">
+          <div>
+            <p class="summary-title">Ձեր ընտրությունը</p>
+            <p id="bookingSummary" class="summary-text">Օրը, ժամը և նստատեղը դեռ ընտրված չեն։</p>
+          </div>
+          <button id="bookBtn" class="primary-btn" type="button" disabled>Ամրագրել</button>
+        </div>
+      </section>
+
+      <div id="dynamicSections" class="dynamic-sections"></div>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="supabase-config.js"></script>
+  <script src="common.js"></script>
+  <script src="course.js"></script>
+</body>
+</html>

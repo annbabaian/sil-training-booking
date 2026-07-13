@@ -1,315 +1,46 @@
-const adminState = {
-  bookings: [],
-  filtered: [],
-  channel: null,
-};
+let courses=[],current=null,moving=null,speakers=[],currentSpeaker=null;
+loginBtn.onclick=()=>{if(adminPassword.value==='SIL2026'){sessionStorage.setItem('silAdmin','1');loginPanel.classList.add('hidden');adminApp.classList.remove('hidden');init()}else toast('Սխալ գաղտնաբառ')};if(sessionStorage.getItem('silAdmin')==='1'){loginPanel.classList.add('hidden');adminApp.classList.remove('hidden');init()}
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.admin-tab').forEach(x=>x.classList.add('hidden'));$('#'+b.dataset.tab+'Tab').classList.remove('hidden');if(b.dataset.tab==='bookings')renderBookings();if(b.dataset.tab==='employees')loadEmployees();if(b.dataset.tab==='speakers')loadSpeakers()});
+async function init(){await Promise.all([loadCourses(),loadSpeakers(true)])}
+async function loadCourses(){courses=await getCourses();courseList.innerHTML=courses.map(c=>`<button class="admin-list-item ${current?.id===c.id?'active':''}" data-id="${c.id}">${esc(c.icon||'🎓')} ${esc(c.title)}<small>${esc(c.status)}</small></button>`).join('');courseList.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>editCourse(b.dataset.id))}
+newCourseBtn.onclick=()=>{current={id:crypto.randomUUID(),title:'',category:'',description:'',icon:'🎓',status:'active',sessions:[],sections:[]};fillForm()};
+async function editCourse(id){const full=await getCourseFull(id);current={...full.course,sessions:full.sessions,sections:full.sections,speakers:full.speakers||[]};fillForm();loadCourses()}
+function fillForm(){courseId.value=current.id;title.value=current.title||'';category.value=current.category||'';description.value=current.description||'';icon.value=current.icon||'🎓';status.value=current.status||'active';renderCourseSpeakers();renderSessions();renderSections()}
+function renderSessions(){sessionsEditor.innerHTML=(current.sessions||[]).map(s=>sessionRow(s)).join('')}
+function sessionRow(s={id:crypto.randomUUID(),session_date:'',session_time:'',seats:14}){return `<div class="editor-row session-row" data-id="${s.id}"><input type="date" class="s-date" value="${s.session_date||''}"><input class="s-time" placeholder="11:00–12:00" value="${esc(s.session_time||'')}"><input type="number" class="s-seats" min="1" max="500" value="${s.seats||14}"><button type="button" class="icon-btn remove-row">✕</button></div>`}
+addSessionBtn.onclick=()=>sessionsEditor.insertAdjacentHTML('beforeend',sessionRow());sessionsEditor.onclick=e=>{if(e.target.closest('.remove-row'))e.target.closest('.session-row').remove()};
+function renderSections(){sectionsEditor.innerHTML=(current.sections||[]).map(s=>sectionRow(s)).join('')}
+function sectionRow(s={id:crypto.randomUUID(),type:'text',title:'',content:{text:''}}){const c=s.content||{};return `<div class="section-editor" data-id="${s.id}"><div class="section-editor-head"><select class="sec-type"><option value="text" ${s.type==='text'?'selected':''}>Տեքստ</option><option value="files" ${s.type==='files'?'selected':''}>PDF / Ֆայլեր</option><option value="images" ${s.type==='images'?'selected':''}>Նկարներ</option><option value="announcement" ${s.type==='announcement'?'selected':''}>Հայտարարություն</option><option value="link" ${s.type==='link'?'selected':''}>Կոճակ/հղում</option><option value="faq" ${s.type==='faq'?'selected':''}>FAQ</option></select><input class="sec-title" placeholder="Բաժնի վերնագիր" value="${esc(s.title||'')}"><button type="button" class="icon-btn move-up">↑</button><button type="button" class="icon-btn move-down">↓</button><button type="button" class="icon-btn remove-section">✕</button></div><textarea class="sec-text" placeholder="Բաժնի տեքստը">${esc(c.text||'')}</textarea><div class="link-fields"><input class="sec-label" placeholder="Կոճակի անուն" value="${esc(c.label||'')}"><input class="sec-url" placeholder="Հղում" value="${esc(c.url||'')}"></div><div class="file-tools"><label class="secondary-btn upload-label">📎 Ընտրել PDF/ֆայլ<input type="file" class="file-input" multiple hidden></label><label class="secondary-btn upload-label">🖼️ Ընտրել նկար<input type="file" class="image-input" accept="image/*" multiple hidden></label><span class="upload-status hint"></span></div><div class="attached-files">${renderAttached(c.files||[], 'file')}${renderAttached(c.images||[], 'image')}</div></div>`}
+function renderAttached(items,kind){return items.map((f,i)=>`<div class="attached-item" data-kind="${kind}" data-path="${esc(f.path||'')}" data-url="${esc(f.url||'')}" data-name="${esc(f.name||'')}"><input class="asset-label" value="${esc(f.label||f.name||'')}" placeholder="Ցուցադրվող անուն"><span>${kind==='image'?'🖼️':'📄'} ${esc(f.name||'')}</span><button type="button" class="icon-btn delete-asset">✕</button></div>`).join('')}
+addSectionBtn.onclick=()=>sectionsEditor.insertAdjacentHTML('beforeend',sectionRow());
+sectionsEditor.onclick=async e=>{const row=e.target.closest('.section-editor');if(!row)return;if(e.target.closest('.remove-section'))row.remove();if(e.target.closest('.move-up')&&row.previousElementSibling)row.parentNode.insertBefore(row,row.previousElementSibling);if(e.target.closest('.move-down')&&row.nextElementSibling)row.parentNode.insertBefore(row.nextElementSibling,row);if(e.target.closest('.delete-asset')){const item=e.target.closest('.attached-item');try{await deleteAcademyFile(item.dataset.path);item.remove();toast('Ֆայլը ջնջվեց')}catch(err){toast(err.message)}}};
+sectionsEditor.onchange=async e=>{if(!e.target.matches('.file-input,.image-input'))return;const row=e.target.closest('.section-editor'),files=[...e.target.files];if(!files.length)return;row.querySelector('.upload-status').textContent='Բեռնվում է...';try{for(const f of files){const meta=await uploadAcademyFile(f,courseId.value,row.dataset.id);const kind=e.target.classList.contains('image-input')?'image':'file';row.querySelector('.attached-files').insertAdjacentHTML('beforeend',renderAttached([{...meta,label:f.name}],kind));row.querySelector('.sec-type').value=kind==='image'?'images':'files'}row.querySelector('.upload-status').textContent='Բեռնված է';e.target.value=''}catch(err){row.querySelector('.upload-status').textContent='';toast(err.message)}};
+courseForm.onsubmit=async e=>{e.preventDefault();const id=courseId.value||crypto.randomUUID();const course={id,title:title.value.trim(),category:category.value.trim(),description:description.value.trim(),icon:icon.value.trim()||'🎓',status:status.value};let r=await sb.from('academy_courses').upsert(course);if(r.error)return toast(r.error.message);const sessions=[...sessionsEditor.querySelectorAll('.session-row')].map((x,i)=>({id:x.dataset.id,course_id:id,session_date:x.querySelector('.s-date').value,session_time:x.querySelector('.s-time').value.trim(),seats:Number(x.querySelector('.s-seats').value||14),sort_order:i})).filter(x=>x.session_date&&x.session_time);const selectedSpeakerIds=[...courseSpeakersEditor.querySelectorAll('input:checked')].map(x=>x.value);const sections=[...sectionsEditor.querySelectorAll('.section-editor')].map((x,i)=>{const files=[...x.querySelectorAll('.attached-item')];return {id:x.dataset.id,course_id:id,type:x.querySelector('.sec-type').value,title:x.querySelector('.sec-title').value.trim(),sort_order:i,content:{text:x.querySelector('.sec-text').value.trim(),label:x.querySelector('.sec-label').value.trim(),url:x.querySelector('.sec-url').value.trim(),files:files.filter(f=>f.dataset.kind==='file').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()})),images:files.filter(f=>f.dataset.kind==='image').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()}))}}});await sb.from('academy_sessions').delete().eq('course_id',id);await sb.from('academy_sections').delete().eq('course_id',id);await sb.from('academy_course_speakers').delete().eq('course_id',id);if(sessions.length){r=await sb.from('academy_sessions').insert(sessions);if(r.error)return toast(r.error.message)}if(sections.length){r=await sb.from('academy_sections').insert(sections);if(r.error)return toast(r.error.message)}if(selectedSpeakerIds.length){r=await sb.from('academy_course_speakers').insert(selectedSpeakerIds.map((speaker_id,sort_order)=>({course_id:id,speaker_id,sort_order})));if(r.error)return toast(r.error.message)}toast('Դասընթացը պահպանվեց');current={...course,sessions,sections};await loadCourses()};
+deleteCourseBtn.onclick=async()=>{if(!current||!confirm('Ջնջե՞լ դասընթացը։'))return;const {error}=await sb.from('academy_courses').delete().eq('id',current.id);if(error)return toast(error.message);current=null;courseForm.reset();sessionsEditor.innerHTML='';sectionsEditor.innerHTML='';await loadCourses();toast('Ջնջվեց')};
+async function loadEmployees(){const {data,error}=await sb.from('academy_employees').select('*').order('full_name');if(error)return toast(error.message);employeesText.value=(data||[]).map(x=>x.full_name).join('\n')}
+saveEmployeesBtn.onclick=async()=>{const names=[...new Set(employeesText.value.split('\n').map(x=>x.trim()).filter(Boolean))];await sb.from('academy_employees').delete().neq('id',0);const {error}=names.length?await sb.from('academy_employees').insert(names.map(full_name=>({full_name}))):{error:null};if(error)return toast(error.message);toast('Աշխատակիցների ցանկը պահպանվեց')};
+async function renderBookings(){const {data,error}=await sb.from('academy_bookings_view').select('*').order('created_at',{ascending:false});if(error)return toast(error.message);bookingsTable.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Մասնակից</th><th>Դասընթաց</th><th>Օր</th><th>Ժամ</th><th>Տեղ</th><th></th></tr></thead><tbody>${(data||[]).map(b=>`<tr><td>${esc(b.employee_name)}</td><td>${esc(b.course_title)}</td><td>${formatDate(b.session_date)}</td><td>${esc(b.session_time)}</td><td>${b.seat_no}</td><td><div class="table-actions"><button class="secondary-btn move-booking" data-id="${b.id}">Տեղափոխել</button><button class="icon-btn delete-booking" data-id="${b.id}">✕</button></div></td></tr>`).join('')||'<tr><td colspan="6">Գրանցումներ չկան</td></tr>'}</tbody></table></div>`;bookingsTable.querySelectorAll('.delete-booking').forEach(b=>b.onclick=async()=>{if(confirm('Ջնջե՞լ գրանցումը։')){await sb.from('academy_bookings').delete().eq('id',b.dataset.id);renderBookings()}});bookingsTable.querySelectorAll('.move-booking').forEach(b=>b.onclick=()=>openMove(b.dataset.id,data))}
+async function openMove(id,rows){moving=rows.find(x=>x.id===id);moveBookingInfo.textContent=`${moving.employee_name} — ${moving.course_title}, ${formatDate(moving.session_date)}, ${moving.session_time}`;const {data}=await sb.from('academy_sessions_view').select('*').order('session_date');moveTargetSession.innerHTML=(data||[]).map(s=>`<option value="${s.id}" ${s.id===moving.session_id?'selected':''}>${esc(s.course_title)} — ${formatDate(s.session_date)} — ${esc(s.session_time)} (${s.free_seats} ազատ)</option>`).join('');moveBookingModal.classList.remove('hidden')}
+function closeMove(){moveBookingModal.classList.add('hidden');moving=null}closeMoveModal.onclick=cancelMoveBooking.onclick=closeMove;
+confirmMoveBooking.onclick=async()=>{const sessionId=moveTargetSession.value;if(!moving||sessionId===moving.session_id)return toast('Ընտրեք այլ սեսիա');const {data:s}=await sb.from('academy_sessions').select('*').eq('id',sessionId).single();const {data:used}=await sb.from('academy_bookings').select('seat_no').eq('session_id',sessionId);const occ=new Set((used||[]).map(x=>x.seat_no));let seat=moving.seat_no;if(occ.has(seat)){seat=Array.from({length:s.seats},(_,i)=>i+1).find(x=>!occ.has(x))}if(!seat)return toast('Այս սեսիայում ազատ տեղ չկա');const {error}=await sb.from('academy_bookings').update({course_id:s.course_id,session_id:sessionId,seat_no:seat}).eq('id',moving.id);if(error)return toast(error.message);closeMove();renderBookings();toast('Մասնակիցը տեղափոխվեց')};
+exportCsvBtn.onclick=async()=>{const {data}=await sb.from('academy_bookings_view').select('*');const rows=[['Մասնակից','Դասընթաց','Օր','Ժամ','Նստատեղ'],...(data||[]).map(x=>[x.employee_name,x.course_title,x.session_date,x.session_time,x.seat_no])];const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='sil-academy-registrations.csv';a.click()};
 
-const adminEls = {
-  tbody: document.getElementById("bookingsTbody"),
-  empty: document.getElementById("emptyState"),
-  totalCount: document.getElementById("totalCount"),
-  filteredCount: document.getElementById("filteredCount"),
-  freeCount: document.getElementById("freeCount"),
-  nameSearch: document.getElementById("nameSearch"),
-  departmentSearch: document.getElementById("departmentSearch"),
-  dayFilter: document.getElementById("dayFilter"),
-  sessionFilter: document.getElementById("sessionFilter"),
-  resetBtn: document.getElementById("resetBtn"),
-  exportBtn: document.getElementById("exportBtn"),
-  toast: document.getElementById("toast"),
-  editDialog: document.getElementById("editDialog"),
-  editId: document.getElementById("editId"),
-  editFullName: document.getElementById("editFullName"),
-  editDay: document.getElementById("editDay"),
-  editSession: document.getElementById("editSession"),
-  editSeat: document.getElementById("editSeat"),
-  cancelEditBtn: document.getElementById("cancelEditBtn"),
-};
 
-function getAllTrainingSessions() {
-  const all = Object.values(TRAINING_SESSIONS).flat();
-  return [...new Map(all.map(item => [item.value, item])).values()];
+function renderCourseSpeakers(){
+  const selected=new Set((current?.speakers||[]).map(x=>x.id));
+  courseSpeakersEditor.innerHTML=speakers.filter(x=>x.is_active!==false).map(s=>`<label class="speaker-check"><input type="checkbox" value="${s.id}" ${selected.has(s.id)?'checked':''}><span>${s.photo_url?`<img src="${esc(s.photo_url)}">`:'👤'}<b>${esc(s.full_name)}</b><small>${esc(s.job_title||'')}</small></span></label>`).join('')||'<p class="hint">Նախ Speakers բաժնում ավելացրեք speaker։</p>';
 }
-
-function getTotalCapacity() {
-  return Object.values(TRAINING_SESSIONS).flat().length * TOTAL_SEATS;
+async function loadSpeakers(silent=false){
+  const {data,error}=await sb.from('academy_speakers').select('*').order('created_at');
+  if(error){if(!silent)toast(error.message);return}
+  speakers=data||[];
+  if(typeof speakerList!=='undefined')speakerList.innerHTML=speakers.map(s=>`<button class="admin-list-item ${currentSpeaker?.id===s.id?'active':''}" data-speaker-id="${s.id}">${s.photo_url?`<img class="speaker-list-photo" src="${esc(s.photo_url)}">`:'👤'} ${esc(s.full_name)}<small>${esc(s.job_title||'')}</small></button>`).join('')||'<p class="hint">Speaker դեռ չկա։</p>';
+  speakerList?.querySelectorAll('[data-speaker-id]').forEach(b=>b.onclick=()=>editSpeaker(b.dataset.speakerId));
+  if(current)renderCourseSpeakers();
 }
-function getSessionsForDay(dayValue) {
-  return TRAINING_SESSIONS[dayValue] || [];
-}
-
-function populateEditSessions(dayValue, selectedSession = "") {
-  const sessions = getSessionsForDay(dayValue);
-  adminEls.editSession.innerHTML = "";
-
-  sessions.forEach(session => {
-    adminEls.editSession.insertAdjacentHTML(
-      "beforeend",
-      `<option value="${session.value}">${session.label}</option>`
-    );
-  });
-
-  if (selectedSession) {
-    adminEls.editSession.value = selectedSession;
-  }
-}
-function initAdmin() {
-  populateFilters();
-  bindAdminEvents();
-  loadAdminBookings();
-  subscribeAdminRealtime();
-}
-
-function populateFilters() {
-  TRAINING_DAYS.forEach(day => {
-    adminEls.dayFilter.insertAdjacentHTML("beforeend", `<option value="${day.value}">${day.label}</option>`);
-    adminEls.editDay.insertAdjacentHTML("beforeend", `<option value="${day.value}">${day.label}</option>`);
-  });
-
-  getAllTrainingSessions().forEach(session => {
-    adminEls.sessionFilter.insertAdjacentHTML("beforeend", `<option value="${session.value}">${session.label}</option>`);
-  });
-} 
-
-function bindAdminEvents() {
-  [adminEls.nameSearch, adminEls.departmentSearch, adminEls.dayFilter, adminEls.sessionFilter].forEach(el => {
-    if (!el) return;
-    el.addEventListener("input", applyFilters);
-    el.addEventListener("change", applyFilters);
-  });
-
-  adminEls.resetBtn.addEventListener("click", resetFilters);
-  adminEls.exportBtn.addEventListener("click", exportCsvForExcel);
-  adminEls.cancelEditBtn.addEventListener("click", () => adminEls.editDialog.close());
-  adminEls.editDialog.querySelector("form").addEventListener("submit", saveEdit);
-
-  adminEls.editDay.addEventListener("change", () => {
-    populateEditSessions(adminEls.editDay.value);
-  });
-}
-
-function showAdminToast(message) {
-  adminEls.toast.textContent = message;
-  adminEls.toast.classList.add("show");
-  clearTimeout(showAdminToast.timer);
-  showAdminToast.timer = setTimeout(() => adminEls.toast.classList.remove("show"), 2800);
-}
-
-async function loadAdminBookings() {
-  const { data, error } = await db
-    .from("training_bookings")
-    .select("*")
-    .order("training_day", { ascending: true })
-    .order("session_time", { ascending: true })
-    .order("seat_number", { ascending: true });
-
-  if (error) {
-    console.error(error);
-    showAdminToast("Չհաջողվեց բեռնել տվյալները։");
-    return;
-  }
-
-  adminState.bookings = data || [];
-  applyFilters();
-}
-
-function applyFilters() {
-  const nameQ = adminEls.nameSearch.value.trim().toLowerCase();
-  const departmentQ = adminEls.departmentSearch ? adminEls.departmentSearch.value.trim().toLowerCase() : "";
-  const day = adminEls.dayFilter.value;
-  const session = adminEls.sessionFilter.value;
-
-  adminState.filtered = adminState.bookings.filter(item => {
-    const byName = !nameQ || item.full_name.toLowerCase().includes(nameQ);
-    const byDepartment = !departmentQ || String(item.department || "").toLowerCase().includes(departmentQ);
-    const byDay = !day || item.training_day === day;
-    const bySession = !session || item.session_time === session;
-    return byName && byDepartment && byDay && bySession;
-  });
-
-  renderAdminTable();
-  renderStats();
-}
-
-function renderStats() {
-  adminEls.totalCount.textContent = adminState.bookings.length;
-  adminEls.filteredCount.textContent = adminState.filtered.length;
-  adminEls.freeCount.textContent = getTotalCapacity() - adminState.bookings.length;
-}
-
-function renderAdminTable() {
-  adminEls.empty.classList.toggle("hidden", adminState.filtered.length > 0);
-
-  adminEls.tbody.innerHTML = adminState.filtered.map(item => `
-<tr>
-  <td>${escapeHtml(item.full_name)}</td>
-  <td>${formatDay(item.training_day)}</td>
-  <td>${formatSession(item.session_time)}</td>
-  <td>${item.seat_number}</td>
-  <td>${formatDateTime(item.created_at)}</td>
-  <td>
-    <div class="actions">
-      <button class="blue-btn" type="button" data-action="edit" data-id="${item.id}">Խմբագրել</button>
-      <button class="ghost-btn" type="button" data-action="free" data-id="${item.id}">Ազատել աթոռը</button>
-      <button class="danger-btn" type="button" data-action="delete" data-id="${item.id}">Ջնջել</button>
-    </div>
-  </td>
-</tr>
-  `).join("");
-
-  adminEls.tbody.querySelectorAll("button[data-action]").forEach(btn => {
-    btn.addEventListener("click", () => handleRowAction(btn.dataset.action, btn.dataset.id));
-  });
-}
-
-function handleRowAction(action, id) {
-  const booking = adminState.bookings.find(item => item.id === id);
-  if (!booking) return;
-
-  if (action === "edit") openEditDialog(booking);
-  if (action === "free" || action === "delete") {
-    deleteBooking(id, action === "free" ? "Աթոռը ազատվեց։" : "Ամրագրումը ջնջվեց։");
-  }
-}
-
-function openEditDialog(booking) {
-adminEls.editId.value = booking.id;
-adminEls.editFullName.value = booking.full_name;
-adminEls.editDay.value = booking.training_day;
-
-populateEditSessions(
-  booking.training_day,
-  booking.session_time
-);
-
-adminEls.editSeat.value = booking.seat_number;
-adminEls.editDialog.showModal();
-
-}
-
-async function saveEdit(event) {
-  event.preventDefault();
-
-  const id = adminEls.editId.value;
-
-  const payload = {
-    full_name: adminEls.editFullName.value.trim(),
-    department: "",
-    training_day: adminEls.editDay.value,
-    session_time: adminEls.editSession.value,
-    seat_number: Number(adminEls.editSeat.value),
-  };
-
-  const { error } = await db.from("training_bookings").update(payload).eq("id", id);
-
-  if (error) {
-    const duplicate = error.code === "23505" || String(error.message).includes("duplicate");
-    showAdminToast(duplicate ? "Այդ աշխատակիցը կամ աթոռն արդեն զբաղված է։" : "Չհաջողվեց պահպանել։");
-    return;
-  }
-
-  adminEls.editDialog.close();
-  showAdminToast("Փոփոխությունները պահպանվեցին։");
-  await loadAdminBookings();
-}
-
-async function deleteBooking(id, successMessage) {
-  const { error } = await db.from("training_bookings").delete().eq("id", id);
-
-  if (error) {
-    console.error(error);
-    showAdminToast("Չհաջողվեց կատարել գործողությունը։");
-    return;
-  }
-
-  showAdminToast(successMessage);
-  await loadAdminBookings();
-}
-
-function resetFilters() {
-  adminEls.nameSearch.value = "";
-  if (adminEls.departmentSearch) adminEls.departmentSearch.value = "";
-  adminEls.dayFilter.value = "";
-  adminEls.sessionFilter.value = "";
-  applyFilters();
-}
-
-async function exportCsvForExcel() {
-  const { data: employees, error } = await db
-    .from("employees")
-    .select("full_name")
-    .order("full_name", { ascending: true });
-
-  if (error) {
-    console.error(error);
-    showAdminToast("Չհաջողվեց բեռնել աշխատակիցների ցանկը։");
-    return;
-  }
-
-  const bookingByName = new Map(adminState.bookings.map(item => [item.full_name, item]));
-
-  const headers = ["Անուն ազգանուն", "Գրանցվել է", "Օր", "Սեսիա", "Աթոռ", "Ամսաթիվ"];
-
-  const rows = (employees || []).map(emp => {
-    const booking = bookingByName.get(emp.full_name);
-
-    return [
-      emp.full_name,
-      booking ? "Այո" : "Ոչ",
-      booking ? formatDay(booking.training_day) : "",
-      booking ? formatSession(booking.session_time) : "",
-      booking ? booking.seat_number : "",
-      booking ? formatDateTime(booking.created_at) : "",
-    ];
-  });
-
-  const csv = [headers, ...rows]
-    .map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(","))
-    .join("\n");
-
-  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `training-attendance-report-${new Date().toISOString().slice(0, 10)}.csv`;
-
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-
-  URL.revokeObjectURL(url);
-}
-
-function subscribeAdminRealtime() {
-  adminState.channel = db.channel("admin-training-bookings-realtime")
-    .on("postgres_changes", { event: "*", schema: "public", table: "training_bookings" }, loadAdminBookings)
-    .subscribe();
-}
-
-function formatDay(value) {
-  return TRAINING_DAYS.find(day => day.value === value)?.label || value;
-}
-
-function formatSession(value) {
-  return getAllTrainingSessions().find(session => session.value === value)?.label || value;
-}
-
-function formatDateTime(value) {
-  return new Intl.DateTimeFormat("hy-AM", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>'"]/g, char => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "'": "&#039;",
-    '"': "&quot;",
-  }[char]));
-}
-
-initAdmin();
+newSpeakerBtn.onclick=()=>{currentSpeaker={id:crypto.randomUUID(),full_name:'',job_title:'',company:'SIL Insurance',bio:'',photo_url:'',photo_path:'',is_active:true};fillSpeakerForm()};
+function editSpeaker(id){currentSpeaker=speakers.find(x=>x.id===id);fillSpeakerForm();loadSpeakers(true)}
+function fillSpeakerForm(){speakerId.value=currentSpeaker.id;speakerName.value=currentSpeaker.full_name||'';speakerTitle.value=currentSpeaker.job_title||'';speakerCompany.value=currentSpeaker.company||'SIL Insurance';speakerBio.value=currentSpeaker.bio||'';speakerActive.value=String(currentSpeaker.is_active!==false);speakerPhoto.value='';speakerPhotoPreview.innerHTML=currentSpeaker.photo_url?`<img src="${esc(currentSpeaker.photo_url)}" alt="">`:'<span>Նկար ընտրված չէ</span>'}
+speakerPhoto.onchange=()=>{const f=speakerPhoto.files[0];if(f)speakerPhotoPreview.innerHTML=`<img src="${URL.createObjectURL(f)}" alt="">`};
+speakerForm.onsubmit=async e=>{e.preventDefault();let photo_url=currentSpeaker?.photo_url||'',photo_path=currentSpeaker?.photo_path||'';const file=speakerPhoto.files[0];if(file){const meta=await uploadAcademyFile(file,'speakers',speakerId.value);photo_url=meta.url;photo_path=meta.path}const row={id:speakerId.value||crypto.randomUUID(),full_name:speakerName.value.trim(),job_title:speakerTitle.value.trim(),company:speakerCompany.value.trim(),bio:speakerBio.value.trim(),photo_url,photo_path,is_active:speakerActive.value==='true'};const {error}=await sb.from('academy_speakers').upsert(row);if(error)return toast(error.message);currentSpeaker=row;await loadSpeakers();toast('Speaker-ը պահպանվեց')};
+deleteSpeakerBtn.onclick=async()=>{if(!currentSpeaker||!confirm('Ջնջե՞լ speaker-ին։'))return;const {error}=await sb.from('academy_speakers').delete().eq('id',currentSpeaker.id);if(error)return toast(error.message);currentSpeaker=null;speakerForm.reset();speakerPhotoPreview.innerHTML='';await loadSpeakers();toast('Speaker-ը ջնջվեց')};

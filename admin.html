@@ -1,84 +1,13 @@
-<!doctype html>
-<html lang="hy">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin · Նստատեղերի ամրագրումներ</title>
-  <link rel="stylesheet" href="admin.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
-<script>
-  const ADMIN_PASSWORD = "Sil2026";
-
-  const enteredPassword = prompt("Մուտքագրեք admin գաղտնաբառը");
-
-  if (enteredPassword !== ADMIN_PASSWORD) {
-    alert("Սխալ գաղտնաբառ");
-    window.location.href = "index.html";
-  }
-</script>
-  <div class="admin-shell">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Admin panel</p>
-        <h1>Ամրագրումների կառավարում</h1>
-      </div>
-      <a href="index.html" class="back-link">Booking էջ</a>
-    </header>
-
-    <section class="stats-grid">
-      <div class="stat-card"><span>Ընդամենը</span><strong id="totalCount">0</strong></div>
-      <div class="stat-card"><span>Այս ֆիլտրով</span><strong id="filteredCount">0</strong></div>
-      <div class="stat-card"><span>Ազատ տեղեր</span><strong id="freeCount">140</strong></div>
-    </section>
-
-    <section class="filters-card">
-      <label><span>Որոնում անունով</span><input id="nameSearch" type="search" placeholder="օր․ Աննա" /></label>
-      <label><span>Որոնում բաժնով</span><input id="departmentSearch" type="search" placeholder="օր․ Ակտուարական" /></label>
-      <label><span>Օր</span><select id="dayFilter"><option value="">Բոլոր օրերը</option></select></label>
-      <label><span>Սեսիա</span><select id="sessionFilter"><option value="">Բոլոր սեսիաները</option></select></label>
-      <button id="resetBtn" class="ghost-btn" type="button">Մաքրել</button>
-      <button id="exportBtn" class="dark-btn" type="button">Excel export</button>
-    </section>
-
-    <section class="table-card">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Անուն ազգանուն</th>
-              <th>Օր</th>
-              <th>Սեսիա</th>
-              <th>Աթոռ</th>
-              <th>Ամսաթիվ</th>
-              <th>Գործողություն</th>
-            </tr>
-          </thead>
-          <tbody id="bookingsTbody"></tbody>
-        </table>
-      </div>
-      <div id="emptyState" class="empty hidden">Ամրագրումներ չկան։</div>
-    </section>
-  </div>
-
-  <dialog id="editDialog" class="edit-dialog">
-    <form method="dialog" class="edit-form">
-      <h2>Խմբագրել ամրագրումը</h2>
-      <input type="hidden" id="editId" />
-      <label><span>Անուն ազգանուն</span><input id="editFullName" type="text" required /></label>
-      <label><span>Օր</span><select id="editDay" required></select></label>
-      <label><span>Ժամ</span><select id="editSession" required></select></label>
-      <label><span>Աթոռ</span><input id="editSeat" type="number" min="1" max="14" required /></label>
-      <div class="dialog-actions">
-        <button class="ghost-btn" value="cancel" type="button" id="cancelEditBtn">Չեղարկել</button>
-        <button class="dark-btn" value="default" type="submit">Պահպանել</button>
-      </div>
-    </form>
-  </dialog>
-
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="supabase.js"></script>
-  <script src="admin.js"></script>
-</body>
-</html>
+<!doctype html><html lang="hy"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Կառավարում | SIL Academy</title><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body>
+<div class="app-shell"><header class="hero"><div><a class="back-link" href="index.html">← Գլխավոր էջ</a><p class="eyebrow">SIL Insurance Academy</p><h1>Կառավարման բաժին</h1><p class="subtitle">Փոխեք դասընթացները, ժամերը, նյութերը, նկարները և գրանցումները՝ առանց կոդի։</p></div></header>
+<section id="loginPanel" class="panel glass login-panel"><label class="field"><span>Admin գաղտնաբառ</span><input id="adminPassword" type="password"></label><button id="loginBtn" class="primary-btn">Մուտք</button><p class="hint">Սկզբնական գաղտնաբառ՝ SIL2026</p></section>
+<main id="adminApp" class="hidden"><div class="admin-tabs"><button data-tab="courses" class="tab active">Դասընթացներ</button><button data-tab="speakers" class="tab">Speakers</button><button data-tab="employees" class="tab">Աշխատակիցներ</button><button data-tab="bookings" class="tab">Գրանցումներ</button><button id="exportCsvBtn" class="tab">Excel / CSV</button></div>
+<section id="coursesTab" class="admin-tab"><div class="admin-layout"><aside class="panel glass"><button id="newCourseBtn" class="primary-btn full">+ Նոր դասընթաց</button><div id="courseList" class="admin-list"></div></aside><section class="panel glass"><form id="courseForm"><input type="hidden" id="courseId"><div class="form-grid"><label class="field"><span>Անվանում</span><input id="title" required></label><label class="field"><span>Կատեգորիա</span><input id="category"></label><label class="field wide"><span>Նկարագրություն</span><textarea id="description"></textarea></label><label class="field"><span>Նշան/Emoji</span><input id="icon" value="🎓"></label><label class="field"><span>Կարգավիճակ</span><select id="status"><option value="active">Ակտիվ</option><option value="draft">Սևագիր</option><option value="archived">Արխիվ</option></select></label></div>
+<div class="builder-block"><h3>Speaker-ներ</h3><p class="hint">Ընտրեք մեկ կամ մի քանի speaker։ Դրանք կերևան դասընթացի էջի աջ հատվածում։</p><div id="courseSpeakersEditor" class="speaker-check-list"></div></div><div class="builder-block"><h3>Օրեր և ժամեր</h3><div id="sessionsEditor"></div><button type="button" id="addSessionBtn" class="secondary-btn">+ Ավելացնել օր/ժամ</button></div>
+<div class="builder-block"><h3>Էջի բաժիններ</h3><p class="hint">Կարող եք ավելացնել տեքստ, PDF/ֆայլեր, նկարներ, հայտարարություն, FAQ կամ հղում։</p><div id="sectionsEditor"></div><button type="button" id="addSectionBtn" class="secondary-btn">+ Ավելացնել բաժին</button></div>
+<div class="form-actions"><button class="primary-btn" type="submit">Պահպանել</button><button id="deleteCourseBtn" class="danger-btn" type="button">Ջնջել դասընթացը</button></div></form></section></div></section>
+<section id="speakersTab" class="admin-tab hidden"><div class="admin-layout"><aside class="panel glass"><button id="newSpeakerBtn" class="primary-btn full">+ Նոր Speaker</button><div id="speakerList" class="admin-list"></div></aside><section class="panel glass"><form id="speakerForm"><input type="hidden" id="speakerId"><div class="form-grid"><label class="field"><span>Անուն ազգանուն</span><input id="speakerName" required></label><label class="field"><span>Պաշտոն</span><input id="speakerTitle"></label><label class="field"><span>Ընկերություն</span><input id="speakerCompany" value="SIL Insurance"></label><label class="field"><span>Տեսանելի</span><select id="speakerActive"><option value="true">Այո</option><option value="false">Ոչ</option></select></label><label class="field wide"><span>Կարճ նկարագրություն</span><textarea id="speakerBio"></textarea></label><label class="field wide"><span>Նկար</span><input id="speakerPhoto" type="file" accept="image/*"><div id="speakerPhotoPreview" class="speaker-photo-preview"></div></label></div><div class="form-actions"><button class="primary-btn" type="submit">Պահպանել Speaker-ը</button><button id="deleteSpeakerBtn" class="danger-btn" type="button">Ջնջել</button></div></form></section></div></section>
+<section id="employeesTab" class="admin-tab hidden panel glass"><h2>Աշխատակիցների ցանկ</h2><textarea id="employeesText" class="big-textarea" placeholder="Յուրաքանչյուր անունը՝ նոր տողից"></textarea><button id="saveEmployeesBtn" class="primary-btn">Պահպանել ցանկը</button></section>
+<section id="bookingsTab" class="admin-tab hidden panel glass"><h2>Գրանցումներ</h2><div id="bookingsTable"></div></section></main></div>
+<div id="moveBookingModal" class="modal-backdrop hidden"><div class="modal-card glass"><div class="modal-head"><h2>Տեղափոխել մասնակցին</h2><button id="closeMoveModal" class="icon-btn">✕</button></div><p id="moveBookingInfo" class="hint"></p><label class="field"><span>Նոր օր և ժամ</span><select id="moveTargetSession"></select></label><div class="form-actions"><button id="confirmMoveBooking" class="primary-btn">Տեղափոխել</button><button id="cancelMoveBooking" class="secondary-btn">Չեղարկել</button></div></div></div>
+<div id="toast" class="toast"></div><script src="supabase-config.js"></script><script src="common.js"></script><script src="admin.js"></script></body></html>
