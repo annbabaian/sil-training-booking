@@ -54,3 +54,10 @@
 .employee-suggestion{display:block;width:100%;border:0;background:#fff;text-align:left;padding:12px 13px;border-radius:11px;cursor:pointer;color:var(--text)}
 .employee-suggestion:hover,.employee-suggestion:focus{background:#eef2ff;outline:none}
 .employee-no-result{padding:12px 13px;color:var(--muted)}
+
+/* Changed session time indicator */
+.changed-time{display:flex!important;align-items:center;gap:7px;flex-wrap:wrap}
+.old-session-time{text-decoration:line-through;color:#94a3b8;font-weight:800}
+.time-arrow{color:#64748b}
+.new-session-time{color:var(--blue);font-weight:950}
+.time-change-note{display:block;margin-top:5px;color:#b45309;font-weight:800;font-size:11px}
