@@ -1,10 +1,43 @@
-
 function makeSlug(text=''){
   const map={'ա':'a','բ':'b','գ':'g','դ':'d','ե':'e','զ':'z','է':'e','ը':'y','թ':'t','ժ':'zh','ի':'i','լ':'l','խ':'kh','ծ':'ts','կ':'k','հ':'h','ձ':'dz','ղ':'gh','ճ':'ch','մ':'m','յ':'y','ն':'n','շ':'sh','ո':'o','չ':'ch','պ':'p','ջ':'j','ռ':'r','ս':'s','վ':'v','տ':'t','ր':'r','ց':'ts','ու':'u','փ':'p','ք':'q','և':'ev','օ':'o','ֆ':'f'};
   return String(text).toLowerCase().split('').map(c=>map[c]??c).join('').replace(/&/g,' and ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'course';
 }
+const el = id => document.getElementById(id);
+const loginBtn=el('loginBtn'), adminPassword=el('adminPassword'), loginPanel=el('loginPanel'), adminApp=el('adminApp');
+const courseList=el('courseList'), newCourseBtn=el('newCourseBtn'), courseForm=el('courseForm'), courseId=el('courseId');
+const title=el('title'), slug=el('slug'), category=el('category'), description=el('description'), icon=el('icon'), status=el('status');
+const courseSpeakersEditor=el('courseSpeakersEditor'), sessionsEditor=el('sessionsEditor'), addSessionBtn=el('addSessionBtn');
+const sectionsEditor=el('sectionsEditor'), addSectionBtn=el('addSectionBtn'), deleteCourseBtn=el('deleteCourseBtn');
+const employeesText=el('employeesText'), saveEmployeesBtn=el('saveEmployeesBtn'), bookingsTable=el('bookingsTable'), exportCsvBtn=el('exportCsvBtn');
+const moveBookingModal=el('moveBookingModal'), moveBookingInfo=el('moveBookingInfo'), moveTargetSession=el('moveTargetSession');
+const closeMoveModal=el('closeMoveModal'), cancelMoveBooking=el('cancelMoveBooking'), confirmMoveBooking=el('confirmMoveBooking');
+const speakerList=el('speakerList'), newSpeakerBtn=el('newSpeakerBtn'), speakerForm=el('speakerForm'), speakerId=el('speakerId');
+const speakerName=el('speakerName'), speakerTitle=el('speakerTitle'), speakerCompany=el('speakerCompany'), speakerBio=el('speakerBio');
+const speakerActive=el('speakerActive'), speakerPhoto=el('speakerPhoto'), speakerPhotoPreview=el('speakerPhotoPreview'), deleteSpeakerBtn=el('deleteSpeakerBtn');
+
 let courses=[],current=null,moving=null,speakers=[],currentSpeaker=null;
-loginBtn.onclick=()=>{if(adminPassword.value==='SIL2026'){sessionStorage.setItem('silAdmin','1');loginPanel.classList.add('hidden');adminApp.classList.remove('hidden');init()}else toast('Սխալ գաղտնաբառ')};if(sessionStorage.getItem('silAdmin')==='1'){loginPanel.classList.add('hidden');adminApp.classList.remove('hidden');init()}
+async function loginAdmin(){
+  if(adminPassword.value==='SIL2026'){
+    sessionStorage.setItem('silAdmin','1');
+    loginPanel.classList.add('hidden');
+    adminApp.classList.remove('hidden');
+    await init();
+  }else{
+    toast('Սխալ գաղտնաբառ');
+  }
+}
+loginBtn.addEventListener('click', loginAdmin);
+adminPassword.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    loginAdmin();
+  }
+});
+if(sessionStorage.getItem('silAdmin')==='1'){
+  loginPanel.classList.add('hidden');
+  adminApp.classList.remove('hidden');
+  init();
+}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.admin-tab').forEach(x=>x.classList.add('hidden'));$('#'+b.dataset.tab+'Tab').classList.remove('hidden');if(b.dataset.tab==='bookings')renderBookings();if(b.dataset.tab==='employees')loadEmployees();if(b.dataset.tab==='speakers')loadSpeakers()});
 async function init(){await Promise.all([loadCourses(),loadSpeakers(true)])}
 async function loadCourses(){courses=await getCourses();courseList.innerHTML=courses.map(c=>`<button class="admin-list-item ${current?.id===c.id?'active':''}" data-id="${c.id}">${esc(c.icon||'🎓')} ${esc(c.title)}<small>${esc(c.status)}</small></button>`).join('');courseList.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>editCourse(b.dataset.id))}
@@ -34,29 +67,41 @@ exportCsvBtn.onclick=async()=>{
     sb.from('academy_bookings_view').select('*').order('created_at')
   ]);
   if(e1||e2)return toast((e1||e2).message);
+
   const byName=new Map();
-  (bookings||[]).forEach(b=>{const key=(b.employee_name||'').trim().toLocaleLowerCase('hy');if(!byName.has(key))byName.set(key,[]);byName.get(key).push(b)});
+  (bookings||[]).forEach(b=>{
+    const key=(b.employee_name||'').trim().toLocaleLowerCase('hy');
+    if(!byName.has(key))byName.set(key,[]);
+    byName.get(key).push(b);
+  });
+
   const rows=[['Մասնակից','Կարգավիճակ','Դասընթաց','Օր','Ժամ','Նստատեղ']];
   (employees||[]).forEach(emp=>{
-    const list=byName.get(emp.full_name.trim().toLocaleLowerCase('hy'))||[];
-    if(!list.length)rows.push([emp.full_name,'Չգրանցված','','','','']);
-    else{
-  const b = list[0];
-  rows.push([
-    emp.full_name,
-    'Գրանցված',
-    b.course_title,
-    b.session_date,
-    b.session_time,
-    b.seat_no
-  ]);
-}
-  const employeeKeys=new Set((employees||[]).map(x=>x.full_name.trim().toLocaleLowerCase('hy')));
-  (bookings||[]).filter(b=>!employeeKeys.has((b.employee_name||'').trim().toLocaleLowerCase('hy'))).forEach(b=>rows.push([b.employee_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
-  const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='sil-academy-all-employees.csv';a.click();URL.revokeObjectURL(a.href);
-};
+    const key=emp.full_name.trim().toLocaleLowerCase('hy');
+    const list=byName.get(key)||[];
+    if(!list.length){
+      rows.push([emp.full_name,'Չգրանցված','','','','']);
+    }else{
+      const b=list[0];
+      rows.push([emp.full_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]);
+    }
+  });
 
+  const employeeKeys=new Set((employees||[]).map(x=>x.full_name.trim().toLocaleLowerCase('hy')));
+  (bookings||[])
+    .filter(b=>!employeeKeys.has((b.employee_name||'').trim().toLocaleLowerCase('hy')))
+    .forEach(b=>rows.push([b.employee_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
+
+  const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='sil-academy-all-employees.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
 
 function renderCourseSpeakers(){
   const selected=new Set((current?.speakers||[]).map(x=>x.id));
