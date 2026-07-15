@@ -15,7 +15,7 @@ function renderAttached(items,kind){return items.map((f,i)=>`<div class="attache
 addSectionBtn.onclick=()=>sectionsEditor.insertAdjacentHTML('beforeend',sectionRow());
 sectionsEditor.onclick=async e=>{const row=e.target.closest('.section-editor');if(!row)return;if(e.target.closest('.remove-section'))row.remove();if(e.target.closest('.move-up')&&row.previousElementSibling)row.parentNode.insertBefore(row,row.previousElementSibling);if(e.target.closest('.move-down')&&row.nextElementSibling)row.parentNode.insertBefore(row.nextElementSibling,row);if(e.target.closest('.delete-asset')){const item=e.target.closest('.attached-item');try{await deleteAcademyFile(item.dataset.path);item.remove();toast('Ֆայլը ջնջվեց')}catch(err){toast(err.message)}}};
 sectionsEditor.onchange=async e=>{if(!e.target.matches('.file-input,.image-input'))return;const row=e.target.closest('.section-editor'),files=[...e.target.files];if(!files.length)return;row.querySelector('.upload-status').textContent='Բեռնվում է...';try{for(const f of files){const meta=await uploadAcademyFile(f,courseId.value,row.dataset.id);const kind=e.target.classList.contains('image-input')?'image':'file';row.querySelector('.attached-files').insertAdjacentHTML('beforeend',renderAttached([{...meta,label:f.name}],kind));row.querySelector('.sec-type').value=kind==='image'?'images':'files'}row.querySelector('.upload-status').textContent='Բեռնված է';e.target.value=''}catch(err){row.querySelector('.upload-status').textContent='';toast(err.message)}};
-courseForm.onsubmit=async e=>{e.preventDefault();const id=courseId.value||crypto.randomUUID();const course={id,title:title.value.trim(),category:category.value.trim(),description:description.value.trim(),icon:icon.value.trim()||'🎓',status:status.value};let r=await sb.from('academy_courses').upsert(course);if(r.error)return toast(r.error.message);const originalSessions=new Map((current?.sessions||[]).map(s=>[s.id,s]));const sessions=[...sessionsEditor.querySelectorAll('.session-row')].map((x,i)=>{const sessionId=x.dataset.id;const original=originalSessions.get(sessionId);const newTime=x.querySelector('.s-time').value.trim();return {id:sessionId,course_id:id,session_date:x.querySelector('.s-date').value,session_time:newTime,previous_session_time:original&&original.session_time!==newTime?original.session_time:(original?.previous_session_time||null),seats:Number(x.querySelector('.s-seats').value||14),sort_order:i}}).filter(x=>x.session_date&&x.session_time);const selectedSpeakerIds=[...courseSpeakersEditor.querySelectorAll('input:checked')].map(x=>x.value);const sections=[...sectionsEditor.querySelectorAll('.section-editor')].map((x,i)=>{const files=[...x.querySelectorAll('.attached-item')];return {id:x.dataset.id,course_id:id,type:x.querySelector('.sec-type').value,title:x.querySelector('.sec-title').value.trim(),sort_order:i,content:{text:x.querySelector('.sec-text').value.trim(),label:x.querySelector('.sec-label').value.trim(),url:x.querySelector('.sec-url').value.trim(),files:files.filter(f=>f.dataset.kind==='file').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()})),images:files.filter(f=>f.dataset.kind==='image').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()}))}}});const previousSessionIds=(current?.sessions||[]).map(s=>s.id).filter(Boolean);const savedSessionIds=sessions.map(s=>s.id).filter(Boolean);const removedSessionIds=previousSessionIds.filter(sessionId=>!savedSessionIds.includes(sessionId));if(removedSessionIds.length){const {data:bookedSessions,error:bookingCheckError}=await sb.from('academy_bookings').select('session_id').in('session_id',removedSessionIds).limit(1);if(bookingCheckError)return toast(bookingCheckError.message);if(bookedSessions?.length)return toast('Այս ժամերից մեկում գրանցումներ կան․ այն չի ջնջվել։ Նախ տեղափոխեք մասնակիցներին։');const {error:deleteSessionsError}=await sb.from('academy_sessions').delete().in('id',removedSessionIds);if(deleteSessionsError)return toast(deleteSessionsError.message)}await sb.from('academy_sections').delete().eq('course_id',id);await sb.from('academy_course_speakers').delete().eq('course_id',id);if(sessions.length){r=await sb.from('academy_sessions').upsert(sessions,{onConflict:'id'});if(r.error)return toast(r.error.message)}if(sections.length){r=await sb.from('academy_sections').insert(sections);if(r.error)return toast(r.error.message)}if(selectedSpeakerIds.length){r=await sb.from('academy_course_speakers').insert(selectedSpeakerIds.map((speaker_id,sort_order)=>({course_id:id,speaker_id,sort_order})));if(r.error)return toast(r.error.message)}toast('Դասընթացը պահպանվեց');current={...course,sessions,sections};await loadCourses()};
+courseForm.onsubmit=async e=>{e.preventDefault();const id=courseId.value||crypto.randomUUID();const course={id,title:title.value.trim(),category:category.value.trim(),description:description.value.trim(),icon:icon.value.trim()||'🎓',status:status.value};let r=await sb.from('academy_courses').upsert(course);if(r.error)return toast(r.error.message);const sessions=[...sessionsEditor.querySelectorAll('.session-row')].map((x,i)=>({id:x.dataset.id,course_id:id,session_date:x.querySelector('.s-date').value,session_time:x.querySelector('.s-time').value.trim(),seats:Number(x.querySelector('.s-seats').value||14),sort_order:i})).filter(x=>x.session_date&&x.session_time);const selectedSpeakerIds=[...courseSpeakersEditor.querySelectorAll('input:checked')].map(x=>x.value);const sections=[...sectionsEditor.querySelectorAll('.section-editor')].map((x,i)=>{const files=[...x.querySelectorAll('.attached-item')];return {id:x.dataset.id,course_id:id,type:x.querySelector('.sec-type').value,title:x.querySelector('.sec-title').value.trim(),sort_order:i,content:{text:x.querySelector('.sec-text').value.trim(),label:x.querySelector('.sec-label').value.trim(),url:x.querySelector('.sec-url').value.trim(),files:files.filter(f=>f.dataset.kind==='file').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()})),images:files.filter(f=>f.dataset.kind==='image').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()}))}}});await sb.from('academy_sessions').delete().eq('course_id',id);await sb.from('academy_sections').delete().eq('course_id',id);if(sessions.length){r=await sb.from('academy_sessions').insert(sessions);if(r.error)return toast(r.error.message)}if(sections.length){r=await sb.from('academy_sections').insert(sections);if(r.error)return toast(r.error.message)}const {data:existingLinks,error:linkReadError}=await sb.from('academy_course_speakers').select('speaker_id').eq('course_id',id);if(linkReadError)return toast(linkReadError.message);const existingIds=(existingLinks||[]).map(x=>x.speaker_id);const removeIds=existingIds.filter(x=>!selectedSpeakerIds.includes(x));if(removeIds.length){r=await sb.from('academy_course_speakers').delete().eq('course_id',id).in('speaker_id',removeIds);if(r.error)return toast(r.error.message)}if(selectedSpeakerIds.length){r=await sb.from('academy_course_speakers').upsert(selectedSpeakerIds.map((speaker_id,sort_order)=>({course_id:id,speaker_id,sort_order})),{onConflict:'course_id,speaker_id'});if(r.error)return toast(r.error.message)}const selectedSpeakers=speakers.filter(s=>selectedSpeakerIds.includes(s.id));toast('Դասընթացը պահպանվեց');current={...course,sessions,sections,speakers:selectedSpeakers};await loadCourses()};
 deleteCourseBtn.onclick=async()=>{if(!current||!confirm('Ջնջե՞լ դասընթացը։'))return;const {error}=await sb.from('academy_courses').delete().eq('id',current.id);if(error)return toast(error.message);current=null;courseForm.reset();sessionsEditor.innerHTML='';sectionsEditor.innerHTML='';await loadCourses();toast('Ջնջվեց')};
 async function loadEmployees(){const {data,error}=await sb.from('academy_employees').select('*').order('full_name');if(error)return toast(error.message);employeesText.value=(data||[]).map(x=>x.full_name).join('\n')}
 saveEmployeesBtn.onclick=async()=>{const names=[...new Set(employeesText.value.split('\n').map(x=>x.trim()).filter(Boolean))];await sb.from('academy_employees').delete().neq('id',0);const {error}=names.length?await sb.from('academy_employees').insert(names.map(full_name=>({full_name}))):{error:null};if(error)return toast(error.message);toast('Աշխատակիցների ցանկը պահպանվեց')};
@@ -29,88 +29,29 @@ exportCsvBtn.onclick=async()=>{
     sb.from('academy_bookings_view').select('*').order('created_at')
   ]);
   if(e1||e2)return toast((e1||e2).message);
-
-  const normalize=name=>(name||'').trim().toLocaleLowerCase('hy');
   const byName=new Map();
-
-  (bookings||[]).forEach(booking=>{
-    const key=normalize(booking.employee_name);
-    if(!byName.has(key))byName.set(key,[]);
-    byName.get(key).push(booking);
-  });
-
+  (bookings||[]).forEach(b=>{const key=(b.employee_name||'').trim().toLocaleLowerCase('hy');if(!byName.has(key))byName.set(key,[]);byName.get(key).push(b)});
   const rows=[['Մասնակից','Կարգավիճակ','Դասընթաց','Օր','Ժամ','Նստատեղ']];
-
-  (employees||[]).forEach(employee=>{
-    const list=byName.get(normalize(employee.full_name))||[];
-
-    if(!list.length){
-      rows.push([employee.full_name,'Չգրանցված','','','','']);
-      return;
-    }
-
-    const booking=list[0];
-    rows.push([
-      employee.full_name,
-      'Գրանցված',
-      booking.course_title||'',
-      booking.session_date||'',
-      booking.session_time||'',
-      booking.seat_no??''
-    ]);
-  });
-
-  const employeeKeys=new Set((employees||[]).map(employee=>normalize(employee.full_name)));
-
-  (bookings||[])
-    .filter(booking=>!employeeKeys.has(normalize(booking.employee_name)))
-    .forEach(booking=>{
-      rows.push([
-        booking.employee_name||'',
-        'Գրանցված',
-        booking.course_title||'',
-        booking.session_date||'',
-        booking.session_time||'',
-        booking.seat_no??''
-      ]);
-    });
-
-  const escapeHtml=value=>String(value??'')
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
-
-  const tableRows=rows.map((row,index)=>{
-    const tag=index===0?'th':'td';
-    return `<tr>${row.map(value=>`<${tag}>${escapeHtml(value)}</${tag}>`).join('')}</tr>`;
-  }).join('');
-
-  const excelHtml=`\ufeff<!doctype html>
-  <html>
-  <head>
-    <meta charset="UTF-8">
-    <style>
-      table{border-collapse:collapse;font-family:Arial,sans-serif}
-      th,td{border:1px solid #999;padding:6px 10px;white-space:nowrap}
-      th{font-weight:bold;background:#eaf0ff}
-    </style>
-  </head>
-  <body>
-    <table>${tableRows}</table>
-  </body>
-  </html>`;
-
-  const blob=new Blob([excelHtml],{type:'application/vnd.ms-excel;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download='sil-academy-all-employees.xls';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  (employees||[]).forEach(emp=>{
+    const list=byName.get(emp.full_name.trim().toLocaleLowerCase('hy'))||[];
+    if(!list.length)rows.push([emp.full_name,'Չգրանցված','','','','']);
+    else{
+  const b = list[0];
+  rows.push([
+    emp.full_name,
+    'Գրանցված',
+    b.course_title,
+    b.session_date,
+    b.session_time,
+    b.seat_no
+  ]);
+}
+  const employeeKeys=new Set((employees||[]).map(x=>x.full_name.trim().toLocaleLowerCase('hy')));
+  (bookings||[]).filter(b=>!employeeKeys.has((b.employee_name||'').trim().toLocaleLowerCase('hy'))).forEach(b=>rows.push([b.employee_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
+  const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='sil-academy-all-employees.csv';a.click();URL.revokeObjectURL(a.href);
 };
+
 
 function renderCourseSpeakers(){
   const selected=new Set((current?.speakers||[]).map(x=>x.id));
