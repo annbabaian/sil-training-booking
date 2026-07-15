@@ -13,15 +13,20 @@ async function uploadAcademyFile(file, courseId, sectionId){
 }
 async function deleteAcademyFile(path){if(!path)return;const {error}=await sb.storage.from(FILE_BUCKET).remove([path]);if(error)throw error}
 async function getCourses(){const {data,error}=await sb.from('academy_courses').select('*').order('created_at');if(error)throw error;return data||[]}
-async function getCourseFull(id){
-  const [{data:course,error:e1},{data:sessions,error:e2},{data:sections,error:e3},{data:employees,error:e4},{data:bookings,error:e5},{data:speakerLinks,error:e6}] = await Promise.all([
-    sb.from('academy_courses').select('*').eq('id',id).single(),
+async function getCourseFull(identifier){
+  const isUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(identifier||'');
+  let query=sb.from('academy_courses').select('*');
+  query=isUuid?query.eq('id',identifier):query.eq('slug',identifier);
+  const {data:course,error:e1}=await query.single();
+  if(e1)throw e1;
+  const id=course.id;
+  const [{data:sessions,error:e2},{data:sections,error:e3},{data:employees,error:e4},{data:bookings,error:e5},{data:speakerLinks,error:e6}] = await Promise.all([
     sb.from('academy_sessions').select('*').eq('course_id',id).order('session_date').order('sort_order'),
     sb.from('academy_sections').select('*').eq('course_id',id).order('sort_order'),
     sb.from('academy_employees').select('*').order('full_name'),
     sb.from('academy_bookings').select('*').eq('course_id',id),
     sb.from('academy_course_speakers').select('sort_order,speaker:academy_speakers(*)').eq('course_id',id).order('sort_order')
   ]);
-  if(e1)throw e1;if(e2)throw e2;if(e3)throw e3;if(e4)throw e4;if(e5)throw e5;if(e6)throw e6;
+  if(e2)throw e2;if(e3)throw e3;if(e4)throw e4;if(e5)throw e5;if(e6)throw e6;
   return {course,sessions:sessions||[],sections:sections||[],employees:employees||[],bookings:bookings||[],speakers:(speakerLinks||[]).map(x=>x.speaker).filter(Boolean)};
 }
