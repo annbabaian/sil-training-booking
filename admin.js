@@ -21,7 +21,12 @@ function adminLogin(){
   }
 }
 loginBtn.onclick=adminLogin;
-adminPassword.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();adminLogin()}});
+adminPassword.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    adminLogin();
+  }
+});
 if(sessionStorage.getItem('silAdmin')==='1'){
   loginPanel.classList.add('hidden');
   adminApp.classList.remove('hidden');
@@ -44,34 +49,104 @@ sectionsEditor.onclick=async e=>{const row=e.target.closest('.section-editor');i
 sectionsEditor.onchange=async e=>{if(!e.target.matches('.file-input,.image-input'))return;const row=e.target.closest('.section-editor'),files=[...e.target.files];if(!files.length)return;row.querySelector('.upload-status').textContent='Բեռնվում է...';try{for(const f of files){const meta=await uploadAcademyFile(f,courseId.value,row.dataset.id);const kind=e.target.classList.contains('image-input')?'image':'file';row.querySelector('.attached-files').insertAdjacentHTML('beforeend',renderAttached([{...meta,label:f.name}],kind));row.querySelector('.sec-type').value=kind==='image'?'images':'files'}row.querySelector('.upload-status').textContent='Բեռնված է';e.target.value=''}catch(err){row.querySelector('.upload-status').textContent='';toast(err.message)}};
 courseForm.onsubmit=async e=>{
   e.preventDefault();
+
   const id=courseId.value||crypto.randomUUID();
   const courseTitle=title.value.trim();
-  const course={id,title:courseTitle,slug:(slug.value.trim()||makeSlug(courseTitle)),category:category.value.trim(),description:description.value.trim(),icon:icon.value.trim()||'🎓',status:status.value};
-  const sessions=[...sessionsEditor.querySelectorAll('.session-row')].map((x,i)=>({id:x.dataset.id,course_id:id,session_date:x.querySelector('.s-date').value,session_time:x.querySelector('.s-time').value.trim(),seats:Number(x.querySelector('.s-seats').value||14),sort_order:i})).filter(x=>x.session_date&&x.session_time);
-  const selectedSpeakerIds=[...courseSpeakersEditor.querySelectorAll('input:checked')].map(x=>x.value);
-  const sections=[...sectionsEditor.querySelectorAll('.section-editor')].map((x,i)=>{const files=[...x.querySelectorAll('.attached-item')];return {id:x.dataset.id,course_id:id,type:x.querySelector('.sec-type').value,title:x.querySelector('.sec-title').value.trim(),sort_order:i,content:{text:x.querySelector('.sec-text').value.trim(),label:x.querySelector('.sec-label').value.trim(),url:x.querySelector('.sec-url').value.trim(),files:files.filter(f=>f.dataset.kind==='file').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()})),images:files.filter(f=>f.dataset.kind==='image').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()}))}}});
+  const course={
+    id,
+    title:courseTitle,
+    slug:(slug.value.trim()||makeSlug(courseTitle)),
+    category:category.value.trim(),
+    description:description.value.trim(),
+    icon:icon.value.trim()||'🎓',
+    status:status.value
+  };
 
-  // Կարդում ենք արդեն գոյություն ունեցող օր/ժամերը և դրանց գրանցումները՝ մինչև որևէ բան փոխելը։
-  const {data:existingSessions,error:sessionReadError}=await sb.from('academy_sessions').select('id').eq('course_id',id);
+  const sessions=[...sessionsEditor.querySelectorAll('.session-row')]
+    .map((x,i)=>({
+      id:x.dataset.id,
+      course_id:id,
+      session_date:x.querySelector('.s-date').value,
+      session_time:x.querySelector('.s-time').value.trim(),
+      seats:Number(x.querySelector('.s-seats').value||14),
+      sort_order:i
+    }))
+    .filter(x=>x.session_date&&x.session_time);
+
+  const selectedSpeakerIds=[
+    ...courseSpeakersEditor.querySelectorAll('input:checked')
+  ].map(x=>x.value);
+
+  const sections=[...sectionsEditor.querySelectorAll('.section-editor')].map((x,i)=>{
+    const files=[...x.querySelectorAll('.attached-item')];
+    return {
+      id:x.dataset.id,
+      course_id:id,
+      type:x.querySelector('.sec-type').value,
+      title:x.querySelector('.sec-title').value.trim(),
+      sort_order:i,
+      content:{
+        text:x.querySelector('.sec-text').value.trim(),
+        label:x.querySelector('.sec-label').value.trim(),
+        url:x.querySelector('.sec-url').value.trim(),
+        files:files
+          .filter(f=>f.dataset.kind==='file')
+          .map(f=>({
+            path:f.dataset.path,
+            url:f.dataset.url,
+            name:f.dataset.name,
+            label:f.querySelector('.asset-label').value.trim()
+          })),
+        images:files
+          .filter(f=>f.dataset.kind==='image')
+          .map(f=>({
+            path:f.dataset.path,
+            url:f.dataset.url,
+            name:f.dataset.name,
+            label:f.querySelector('.asset-label').value.trim()
+          }))
+      }
+    };
+  });
+
+  // Existing sessions are read before any update.
+  const {data:existingSessions,error:sessionReadError}=await sb
+    .from('academy_sessions')
+    .select('id,session_time,previous_session_time')
+    .eq('course_id',id);
+
   if(sessionReadError)return toast(sessionReadError.message);
+
   const existingIds=(existingSessions||[]).map(x=>x.id);
   let bookingRows=[];
+
   if(existingIds.length){
-    const {data,error}=await sb.from('academy_bookings').select('session_id,seat_no').in('session_id',existingIds);
+    const {data,error}=await sb
+      .from('academy_bookings')
+      .select('session_id,seat_no')
+      .in('session_id',existingIds);
+
     if(error)return toast(error.message);
     bookingRows=data||[];
   }
 
   const currentIds=sessions.map(x=>x.id);
   const removedIds=existingIds.filter(x=>!currentIds.includes(x));
-  const removedWithBookings=removedIds.filter(sessionId=>bookingRows.some(b=>b.session_id===sessionId));
+  const removedWithBookings=removedIds.filter(sessionId=>
+    bookingRows.some(b=>b.session_id===sessionId)
+  );
+
   if(removedWithBookings.length){
     return toast('Այս օր/ժամի վրա գրանցումներ կան։ Նախ տեղափոխեք մասնակիցներին, հետո ջնջեք օրը։');
   }
 
   for(const session of sessions){
-    const bookedSeats=bookingRows.filter(b=>b.session_id===session.id).map(b=>Number(b.seat_no)||0);
+    const bookedSeats=bookingRows
+      .filter(b=>b.session_id===session.id)
+      .map(b=>Number(b.seat_no)||0);
+
     const highestBookedSeat=bookedSeats.length?Math.max(...bookedSeats):0;
+
     if(session.seats<highestBookedSeat){
       return toast(`Նստատեղերի քանակը չի կարող լինել ${highestBookedSeat}-ից պակաս, քանի որ այդ համարով գրանցված մասնակից կա։`);
     }
@@ -80,55 +155,130 @@ courseForm.onsubmit=async e=>{
   let r=await sb.from('academy_courses').upsert(course);
   if(r.error)return toast(r.error.message);
 
-  // Գոյություն ունեցող session-ները թարմացվում են նույն ID-ով, նորերը՝ ավելացվում։
-  // Այսպես նստատեղերի թիվը փոխելիս գրանցումները չեն ջնջվում։
+  // Keep the same session IDs. If the time changes, remember the old time.
   if(sessions.length){
-    r=await sb.from('academy_sessions').upsert(sessions,{onConflict:'id'});
+    const existingSessionMap=new Map(
+      (existingSessions||[]).map(session=>[session.id,session])
+    );
+
+    const sessionsToSave=sessions.map(session=>{
+      const oldSession=existingSessionMap.get(session.id);
+
+      if(!oldSession){
+        return {...session,previous_session_time:null};
+      }
+
+      const oldTime=String(oldSession.session_time||'').trim();
+      const newTime=String(session.session_time||'').trim();
+
+      if(oldTime!==newTime){
+        return {...session,previous_session_time:oldTime};
+      }
+
+      return {
+        ...session,
+        previous_session_time:oldSession.previous_session_time||null
+      };
+    });
+
+    r=await sb
+      .from('academy_sessions')
+      .upsert(sessionsToSave,{onConflict:'id'});
+
     if(r.error)return toast(r.error.message);
   }
+
   if(removedIds.length){
     r=await sb.from('academy_sessions').delete().in('id',removedIds);
     if(r.error)return toast(r.error.message);
   }
 
-  // Էջի բաժինները գրանցումների հետ կապված չեն, ուստի դրանք կարող են վերակառուցվել։
+  // Sections are unrelated to bookings.
   r=await sb.from('academy_sections').delete().eq('course_id',id);
   if(r.error)return toast(r.error.message);
+
   if(sections.length){
     r=await sb.from('academy_sections').insert(sections);
     if(r.error)return toast(r.error.message);
   }
 
-  const {data:existingLinks,error:linkReadError}=await sb.from('academy_course_speakers').select('speaker_id').eq('course_id',id);
+  const {data:existingLinks,error:linkReadError}=await sb
+    .from('academy_course_speakers')
+    .select('speaker_id')
+    .eq('course_id',id);
+
   if(linkReadError)return toast(linkReadError.message);
+
   const existingSpeakerIds=(existingLinks||[]).map(x=>x.speaker_id);
-  const removeSpeakerIds=existingSpeakerIds.filter(x=>!selectedSpeakerIds.includes(x));
+  const removeSpeakerIds=existingSpeakerIds.filter(
+    x=>!selectedSpeakerIds.includes(x)
+  );
+
   if(removeSpeakerIds.length){
-    r=await sb.from('academy_course_speakers').delete().eq('course_id',id).in('speaker_id',removeSpeakerIds);
-    if(r.error)return toast(r.error.message);
-  }
-  if(selectedSpeakerIds.length){
-    r=await sb.from('academy_course_speakers').upsert(selectedSpeakerIds.map((speaker_id,sort_order)=>({course_id:id,speaker_id,sort_order})),{onConflict:'course_id,speaker_id'});
+    r=await sb
+      .from('academy_course_speakers')
+      .delete()
+      .eq('course_id',id)
+      .in('speaker_id',removeSpeakerIds);
+
     if(r.error)return toast(r.error.message);
   }
 
-  const selectedSpeakers=speakers.filter(s=>selectedSpeakerIds.includes(s.id));
+  if(selectedSpeakerIds.length){
+    r=await sb
+      .from('academy_course_speakers')
+      .upsert(
+        selectedSpeakerIds.map((speaker_id,sort_order)=>({
+          course_id:id,
+          speaker_id,
+          sort_order
+        })),
+        {onConflict:'course_id,speaker_id'}
+      );
+
+    if(r.error)return toast(r.error.message);
+  }
+
+  const selectedSpeakers=speakers.filter(
+    s=>selectedSpeakerIds.includes(s.id)
+  );
+
   toast('Դասընթացը պահպանվեց․ գրանցումները պահպանված են');
   current={...course,sessions,sections,speakers:selectedSpeakers};
   await loadCourses();
 };
 deleteCourseBtn.onclick=async()=>{
   if(!current||!confirm('Ջնջե՞լ դասընթացը։'))return;
-  const {data:courseSessions,error:sessionError}=await sb.from('academy_sessions').select('id').eq('course_id',current.id);
+
+  const {data:courseSessions,error:sessionError}=await sb
+    .from('academy_sessions')
+    .select('id')
+    .eq('course_id',current.id);
+
   if(sessionError)return toast(sessionError.message);
+
   const sessionIds=(courseSessions||[]).map(x=>x.id);
+
   if(sessionIds.length){
-    const {count,error:bookingError}=await sb.from('academy_bookings').select('id',{count:'exact',head:true}).in('session_id',sessionIds);
+    const {count,error:bookingError}=await sb
+      .from('academy_bookings')
+      .select('id',{count:'exact',head:true})
+      .in('session_id',sessionIds);
+
     if(bookingError)return toast(bookingError.message);
-    if(count>0)return toast('Այս դասընթացն ունի գրանցումներ և չի կարող ջնջվել։ Կարգավիճակը փոխեք «Արխիվ»։');
+
+    if(count>0){
+      return toast('Այս դասընթացն ունի գրանցումներ և չի կարող ջնջվել։ Կարգավիճակը փոխեք «Արխիվ»։');
+    }
   }
-  const {error}=await sb.from('academy_courses').delete().eq('id',current.id);
+
+  const {error}=await sb
+    .from('academy_courses')
+    .delete()
+    .eq('id',current.id);
+
   if(error)return toast(error.message);
+
   current=null;
   courseForm.reset();
   sessionsEditor.innerHTML='';
@@ -147,29 +297,66 @@ exportCsvBtn.onclick=async()=>{
     sb.from('academy_employees').select('full_name').order('full_name'),
     sb.from('academy_bookings_view').select('*').order('created_at')
   ]);
+
   if(e1||e2)return toast((e1||e2).message);
+
   const byName=new Map();
+
   (bookings||[]).forEach(b=>{
     const key=(b.employee_name||'').trim().toLocaleLowerCase('hy');
     if(!byName.has(key))byName.set(key,[]);
     byName.get(key).push(b);
   });
+
   const rows=[['Մասնակից','Կարգավիճակ','Դասընթաց','Օր','Ժամ','Նստատեղ']];
+
   (employees||[]).forEach(emp=>{
-    const list=byName.get(emp.full_name.trim().toLocaleLowerCase('hy'))||[];
+    const key=emp.full_name.trim().toLocaleLowerCase('hy');
+    const list=byName.get(key)||[];
+
     if(!list.length){
       rows.push([emp.full_name,'Չգրանցված','','','','']);
     }else{
-      list.forEach(b=>rows.push([emp.full_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
+      list.forEach(b=>{
+        rows.push([
+          emp.full_name,
+          'Գրանցված',
+          b.course_title,
+          b.session_date,
+          b.session_time,
+          b.seat_no
+        ]);
+      });
     }
   });
-  const employeeKeys=new Set((employees||[]).map(x=>x.full_name.trim().toLocaleLowerCase('hy')));
+
+  const employeeKeys=new Set(
+    (employees||[]).map(x=>x.full_name.trim().toLocaleLowerCase('hy'))
+  );
+
   (bookings||[])
-    .filter(b=>!employeeKeys.has((b.employee_name||'').trim().toLocaleLowerCase('hy')))
-    .forEach(b=>rows.push([b.employee_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
-  const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');
+    .filter(b=>!employeeKeys.has(
+      (b.employee_name||'').trim().toLocaleLowerCase('hy')
+    ))
+    .forEach(b=>{
+      rows.push([
+        b.employee_name,
+        'Գրանցված',
+        b.course_title,
+        b.session_date,
+        b.session_time,
+        b.seat_no
+      ]);
+    });
+
+  const csv='\uFEFF'+rows
+    .map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';'))
+    .join('\n');
+
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.href=URL.createObjectURL(
+    new Blob([csv],{type:'text/csv;charset=utf-8'})
+  );
   a.download='sil-academy-all-employees.csv';
   a.click();
   URL.revokeObjectURL(a.href);
