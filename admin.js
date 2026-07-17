@@ -1,38 +1,27 @@
+
 function makeSlug(text=''){
   const map={'ա':'a','բ':'b','գ':'g','դ':'d','ե':'e','զ':'z','է':'e','ը':'y','թ':'t','ժ':'zh','ի':'i','լ':'l','խ':'kh','ծ':'ts','կ':'k','հ':'h','ձ':'dz','ղ':'gh','ճ':'ch','մ':'m','յ':'y','ն':'n','շ':'sh','ո':'o','չ':'ch','պ':'p','ջ':'j','ռ':'r','ս':'s','վ':'v','տ':'t','ր':'r','ց':'ts','ու':'u','փ':'p','ք':'q','և':'ev','օ':'o','ֆ':'f'};
   return String(text).toLowerCase().split('').map(c=>map[c]??c).join('').replace(/&/g,' and ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'course';
 }
-const el = id => document.getElementById(id);
-const loginBtn=el('loginBtn'), adminPassword=el('adminPassword'), loginPanel=el('loginPanel'), adminApp=el('adminApp');
-const courseList=el('courseList'), newCourseBtn=el('newCourseBtn'), courseForm=el('courseForm'), courseId=el('courseId');
-const title=el('title'), slug=el('slug'), category=el('category'), description=el('description'), icon=el('icon'), status=el('status');
-const courseSpeakersEditor=el('courseSpeakersEditor'), sessionsEditor=el('sessionsEditor'), addSessionBtn=el('addSessionBtn');
-const sectionsEditor=el('sectionsEditor'), addSectionBtn=el('addSectionBtn'), deleteCourseBtn=el('deleteCourseBtn');
-const employeesText=el('employeesText'), saveEmployeesBtn=el('saveEmployeesBtn'), bookingsTable=el('bookingsTable'), exportCsvBtn=el('exportCsvBtn');
-const moveBookingModal=el('moveBookingModal'), moveBookingInfo=el('moveBookingInfo'), moveTargetSession=el('moveTargetSession');
-const closeMoveModal=el('closeMoveModal'), cancelMoveBooking=el('cancelMoveBooking'), confirmMoveBooking=el('confirmMoveBooking');
-const speakerList=el('speakerList'), newSpeakerBtn=el('newSpeakerBtn'), speakerForm=el('speakerForm'), speakerId=el('speakerId');
-const speakerName=el('speakerName'), speakerTitle=el('speakerTitle'), speakerCompany=el('speakerCompany'), speakerBio=el('speakerBio');
-const speakerActive=el('speakerActive'), speakerPhoto=el('speakerPhoto'), speakerPhotoPreview=el('speakerPhotoPreview'), deleteSpeakerBtn=el('deleteSpeakerBtn');
-
 let courses=[],current=null,moving=null,speakers=[],currentSpeaker=null;
-async function loginAdmin(){
+
+const loginBtn=document.getElementById('loginBtn');
+const adminPassword=document.getElementById('adminPassword');
+const loginPanel=document.getElementById('loginPanel');
+const adminApp=document.getElementById('adminApp');
+
+function adminLogin(){
   if(adminPassword.value==='SIL2026'){
     sessionStorage.setItem('silAdmin','1');
     loginPanel.classList.add('hidden');
     adminApp.classList.remove('hidden');
-    await init();
+    init();
   }else{
     toast('Սխալ գաղտնաբառ');
   }
 }
-loginBtn.addEventListener('click', loginAdmin);
-adminPassword.addEventListener('keydown', e=>{
-  if(e.key==='Enter'){
-    e.preventDefault();
-    loginAdmin();
-  }
-});
+loginBtn.onclick=adminLogin;
+adminPassword.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();adminLogin()}});
 if(sessionStorage.getItem('silAdmin')==='1'){
   loginPanel.classList.add('hidden');
   adminApp.classList.remove('hidden');
@@ -53,8 +42,100 @@ function renderAttached(items,kind){return items.map((f,i)=>`<div class="attache
 addSectionBtn.onclick=()=>sectionsEditor.insertAdjacentHTML('beforeend',sectionRow());
 sectionsEditor.onclick=async e=>{const row=e.target.closest('.section-editor');if(!row)return;if(e.target.closest('.remove-section'))row.remove();if(e.target.closest('.move-up')&&row.previousElementSibling)row.parentNode.insertBefore(row,row.previousElementSibling);if(e.target.closest('.move-down')&&row.nextElementSibling)row.parentNode.insertBefore(row.nextElementSibling,row);if(e.target.closest('.delete-asset')){const item=e.target.closest('.attached-item');try{await deleteAcademyFile(item.dataset.path);item.remove();toast('Ֆայլը ջնջվեց')}catch(err){toast(err.message)}}};
 sectionsEditor.onchange=async e=>{if(!e.target.matches('.file-input,.image-input'))return;const row=e.target.closest('.section-editor'),files=[...e.target.files];if(!files.length)return;row.querySelector('.upload-status').textContent='Բեռնվում է...';try{for(const f of files){const meta=await uploadAcademyFile(f,courseId.value,row.dataset.id);const kind=e.target.classList.contains('image-input')?'image':'file';row.querySelector('.attached-files').insertAdjacentHTML('beforeend',renderAttached([{...meta,label:f.name}],kind));row.querySelector('.sec-type').value=kind==='image'?'images':'files'}row.querySelector('.upload-status').textContent='Բեռնված է';e.target.value=''}catch(err){row.querySelector('.upload-status').textContent='';toast(err.message)}};
-courseForm.onsubmit=async e=>{e.preventDefault();const id=courseId.value||crypto.randomUUID();const courseTitle=title.value.trim();const course={id,title:courseTitle,slug:(slug.value.trim()||makeSlug(courseTitle)),category:category.value.trim(),description:description.value.trim(),icon:icon.value.trim()||'🎓',status:status.value};let r=await sb.from('academy_courses').upsert(course);if(r.error)return toast(r.error.message);const sessions=[...sessionsEditor.querySelectorAll('.session-row')].map((x,i)=>({id:x.dataset.id,course_id:id,session_date:x.querySelector('.s-date').value,session_time:x.querySelector('.s-time').value.trim(),seats:Number(x.querySelector('.s-seats').value||14),sort_order:i})).filter(x=>x.session_date&&x.session_time);const selectedSpeakerIds=[...courseSpeakersEditor.querySelectorAll('input:checked')].map(x=>x.value);const sections=[...sectionsEditor.querySelectorAll('.section-editor')].map((x,i)=>{const files=[...x.querySelectorAll('.attached-item')];return {id:x.dataset.id,course_id:id,type:x.querySelector('.sec-type').value,title:x.querySelector('.sec-title').value.trim(),sort_order:i,content:{text:x.querySelector('.sec-text').value.trim(),label:x.querySelector('.sec-label').value.trim(),url:x.querySelector('.sec-url').value.trim(),files:files.filter(f=>f.dataset.kind==='file').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()})),images:files.filter(f=>f.dataset.kind==='image').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()}))}}});await sb.from('academy_sessions').delete().eq('course_id',id);await sb.from('academy_sections').delete().eq('course_id',id);if(sessions.length){r=await sb.from('academy_sessions').insert(sessions);if(r.error)return toast(r.error.message)}if(sections.length){r=await sb.from('academy_sections').insert(sections);if(r.error)return toast(r.error.message)}const {data:existingLinks,error:linkReadError}=await sb.from('academy_course_speakers').select('speaker_id').eq('course_id',id);if(linkReadError)return toast(linkReadError.message);const existingIds=(existingLinks||[]).map(x=>x.speaker_id);const removeIds=existingIds.filter(x=>!selectedSpeakerIds.includes(x));if(removeIds.length){r=await sb.from('academy_course_speakers').delete().eq('course_id',id).in('speaker_id',removeIds);if(r.error)return toast(r.error.message)}if(selectedSpeakerIds.length){r=await sb.from('academy_course_speakers').upsert(selectedSpeakerIds.map((speaker_id,sort_order)=>({course_id:id,speaker_id,sort_order})),{onConflict:'course_id,speaker_id'});if(r.error)return toast(r.error.message)}const selectedSpeakers=speakers.filter(s=>selectedSpeakerIds.includes(s.id));toast('Դասընթացը պահպանվեց');current={...course,sessions,sections,speakers:selectedSpeakers};await loadCourses()};
-deleteCourseBtn.onclick=async()=>{if(!current||!confirm('Ջնջե՞լ դասընթացը։'))return;const {error}=await sb.from('academy_courses').delete().eq('id',current.id);if(error)return toast(error.message);current=null;courseForm.reset();sessionsEditor.innerHTML='';sectionsEditor.innerHTML='';await loadCourses();toast('Ջնջվեց')};
+courseForm.onsubmit=async e=>{
+  e.preventDefault();
+  const id=courseId.value||crypto.randomUUID();
+  const courseTitle=title.value.trim();
+  const course={id,title:courseTitle,slug:(slug.value.trim()||makeSlug(courseTitle)),category:category.value.trim(),description:description.value.trim(),icon:icon.value.trim()||'🎓',status:status.value};
+  const sessions=[...sessionsEditor.querySelectorAll('.session-row')].map((x,i)=>({id:x.dataset.id,course_id:id,session_date:x.querySelector('.s-date').value,session_time:x.querySelector('.s-time').value.trim(),seats:Number(x.querySelector('.s-seats').value||14),sort_order:i})).filter(x=>x.session_date&&x.session_time);
+  const selectedSpeakerIds=[...courseSpeakersEditor.querySelectorAll('input:checked')].map(x=>x.value);
+  const sections=[...sectionsEditor.querySelectorAll('.section-editor')].map((x,i)=>{const files=[...x.querySelectorAll('.attached-item')];return {id:x.dataset.id,course_id:id,type:x.querySelector('.sec-type').value,title:x.querySelector('.sec-title').value.trim(),sort_order:i,content:{text:x.querySelector('.sec-text').value.trim(),label:x.querySelector('.sec-label').value.trim(),url:x.querySelector('.sec-url').value.trim(),files:files.filter(f=>f.dataset.kind==='file').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()})),images:files.filter(f=>f.dataset.kind==='image').map(f=>({path:f.dataset.path,url:f.dataset.url,name:f.dataset.name,label:f.querySelector('.asset-label').value.trim()}))}}});
+
+  // Կարդում ենք արդեն գոյություն ունեցող օր/ժամերը և դրանց գրանցումները՝ մինչև որևէ բան փոխելը։
+  const {data:existingSessions,error:sessionReadError}=await sb.from('academy_sessions').select('id').eq('course_id',id);
+  if(sessionReadError)return toast(sessionReadError.message);
+  const existingIds=(existingSessions||[]).map(x=>x.id);
+  let bookingRows=[];
+  if(existingIds.length){
+    const {data,error}=await sb.from('academy_bookings').select('session_id,seat_no').in('session_id',existingIds);
+    if(error)return toast(error.message);
+    bookingRows=data||[];
+  }
+
+  const currentIds=sessions.map(x=>x.id);
+  const removedIds=existingIds.filter(x=>!currentIds.includes(x));
+  const removedWithBookings=removedIds.filter(sessionId=>bookingRows.some(b=>b.session_id===sessionId));
+  if(removedWithBookings.length){
+    return toast('Այս օր/ժամի վրա գրանցումներ կան։ Նախ տեղափոխեք մասնակիցներին, հետո ջնջեք օրը։');
+  }
+
+  for(const session of sessions){
+    const bookedSeats=bookingRows.filter(b=>b.session_id===session.id).map(b=>Number(b.seat_no)||0);
+    const highestBookedSeat=bookedSeats.length?Math.max(...bookedSeats):0;
+    if(session.seats<highestBookedSeat){
+      return toast(`Նստատեղերի քանակը չի կարող լինել ${highestBookedSeat}-ից պակաս, քանի որ այդ համարով գրանցված մասնակից կա։`);
+    }
+  }
+
+  let r=await sb.from('academy_courses').upsert(course);
+  if(r.error)return toast(r.error.message);
+
+  // Գոյություն ունեցող session-ները թարմացվում են նույն ID-ով, նորերը՝ ավելացվում։
+  // Այսպես նստատեղերի թիվը փոխելիս գրանցումները չեն ջնջվում։
+  if(sessions.length){
+    r=await sb.from('academy_sessions').upsert(sessions,{onConflict:'id'});
+    if(r.error)return toast(r.error.message);
+  }
+  if(removedIds.length){
+    r=await sb.from('academy_sessions').delete().in('id',removedIds);
+    if(r.error)return toast(r.error.message);
+  }
+
+  // Էջի բաժինները գրանցումների հետ կապված չեն, ուստի դրանք կարող են վերակառուցվել։
+  r=await sb.from('academy_sections').delete().eq('course_id',id);
+  if(r.error)return toast(r.error.message);
+  if(sections.length){
+    r=await sb.from('academy_sections').insert(sections);
+    if(r.error)return toast(r.error.message);
+  }
+
+  const {data:existingLinks,error:linkReadError}=await sb.from('academy_course_speakers').select('speaker_id').eq('course_id',id);
+  if(linkReadError)return toast(linkReadError.message);
+  const existingSpeakerIds=(existingLinks||[]).map(x=>x.speaker_id);
+  const removeSpeakerIds=existingSpeakerIds.filter(x=>!selectedSpeakerIds.includes(x));
+  if(removeSpeakerIds.length){
+    r=await sb.from('academy_course_speakers').delete().eq('course_id',id).in('speaker_id',removeSpeakerIds);
+    if(r.error)return toast(r.error.message);
+  }
+  if(selectedSpeakerIds.length){
+    r=await sb.from('academy_course_speakers').upsert(selectedSpeakerIds.map((speaker_id,sort_order)=>({course_id:id,speaker_id,sort_order})),{onConflict:'course_id,speaker_id'});
+    if(r.error)return toast(r.error.message);
+  }
+
+  const selectedSpeakers=speakers.filter(s=>selectedSpeakerIds.includes(s.id));
+  toast('Դասընթացը պահպանվեց․ գրանցումները պահպանված են');
+  current={...course,sessions,sections,speakers:selectedSpeakers};
+  await loadCourses();
+};
+deleteCourseBtn.onclick=async()=>{
+  if(!current||!confirm('Ջնջե՞լ դասընթացը։'))return;
+  const {data:courseSessions,error:sessionError}=await sb.from('academy_sessions').select('id').eq('course_id',current.id);
+  if(sessionError)return toast(sessionError.message);
+  const sessionIds=(courseSessions||[]).map(x=>x.id);
+  if(sessionIds.length){
+    const {count,error:bookingError}=await sb.from('academy_bookings').select('id',{count:'exact',head:true}).in('session_id',sessionIds);
+    if(bookingError)return toast(bookingError.message);
+    if(count>0)return toast('Այս դասընթացն ունի գրանցումներ և չի կարող ջնջվել։ Կարգավիճակը փոխեք «Արխիվ»։');
+  }
+  const {error}=await sb.from('academy_courses').delete().eq('id',current.id);
+  if(error)return toast(error.message);
+  current=null;
+  courseForm.reset();
+  sessionsEditor.innerHTML='';
+  sectionsEditor.innerHTML='';
+  await loadCourses();
+  toast('Ջնջվեց');
+};
 async function loadEmployees(){const {data,error}=await sb.from('academy_employees').select('*').order('full_name');if(error)return toast(error.message);employeesText.value=(data||[]).map(x=>x.full_name).join('\n')}
 saveEmployeesBtn.onclick=async()=>{const names=[...new Set(employeesText.value.split('\n').map(x=>x.trim()).filter(Boolean))];await sb.from('academy_employees').delete().neq('id',0);const {error}=names.length?await sb.from('academy_employees').insert(names.map(full_name=>({full_name}))):{error:null};if(error)return toast(error.message);toast('Աշխատակիցների ցանկը պահպանվեց')};
 async function renderBookings(){const {data,error}=await sb.from('academy_bookings_view').select('*').order('created_at',{ascending:false});if(error)return toast(error.message);bookingsTable.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Մասնակից</th><th>Դասընթաց</th><th>Օր</th><th>Ժամ</th><th>Տեղ</th><th></th></tr></thead><tbody>${(data||[]).map(b=>`<tr><td>${esc(b.employee_name)}</td><td>${esc(b.course_title)}</td><td>${formatDate(b.session_date)}</td><td>${esc(b.session_time)}</td><td>${b.seat_no}</td><td><div class="table-actions"><button class="secondary-btn move-booking" data-id="${b.id}">Տեղափոխել</button><button class="icon-btn delete-booking" data-id="${b.id}">✕</button></div></td></tr>`).join('')||'<tr><td colspan="6">Գրանցումներ չկան</td></tr>'}</tbody></table></div>`;bookingsTable.querySelectorAll('.delete-booking').forEach(b=>b.onclick=async()=>{if(confirm('Ջնջե՞լ գրանցումը։')){await sb.from('academy_bookings').delete().eq('id',b.dataset.id);renderBookings()}});bookingsTable.querySelectorAll('.move-booking').forEach(b=>b.onclick=()=>openMove(b.dataset.id,data))}
@@ -67,41 +148,33 @@ exportCsvBtn.onclick=async()=>{
     sb.from('academy_bookings_view').select('*').order('created_at')
   ]);
   if(e1||e2)return toast((e1||e2).message);
-
   const byName=new Map();
   (bookings||[]).forEach(b=>{
     const key=(b.employee_name||'').trim().toLocaleLowerCase('hy');
     if(!byName.has(key))byName.set(key,[]);
     byName.get(key).push(b);
   });
-
   const rows=[['Մասնակից','Կարգավիճակ','Դասընթաց','Օր','Ժամ','Նստատեղ']];
   (employees||[]).forEach(emp=>{
-    const key=emp.full_name.trim().toLocaleLowerCase('hy');
-    const list=byName.get(key)||[];
+    const list=byName.get(emp.full_name.trim().toLocaleLowerCase('hy'))||[];
     if(!list.length){
       rows.push([emp.full_name,'Չգրանցված','','','','']);
     }else{
-      const b=list[0];
-      rows.push([emp.full_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]);
+      list.forEach(b=>rows.push([emp.full_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
     }
   });
-
   const employeeKeys=new Set((employees||[]).map(x=>x.full_name.trim().toLocaleLowerCase('hy')));
   (bookings||[])
     .filter(b=>!employeeKeys.has((b.employee_name||'').trim().toLocaleLowerCase('hy')))
     .forEach(b=>rows.push([b.employee_name,'Գրանցված',b.course_title,b.session_date,b.session_time,b.seat_no]));
-
   const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');
-  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const a=document.createElement('a');
-  a.href=url;
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   a.download='sil-academy-all-employees.csv';
-  document.body.appendChild(a);
   a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(a.href);
 };
+
 
 function renderCourseSpeakers(){
   const selected=new Set((current?.speakers||[]).map(x=>x.id));
