@@ -13,8 +13,16 @@ function renderSpeakers(){
 }
 
 function bookedCount(id){return state.bookings.filter(b=>b.session_id===id).length}
+function sessionTimeHtml(session){
+  const oldTime=String(session.previous_session_time||'').trim();
+  const newTime=String(session.session_time||'').trim();
+  if(oldTime && oldTime!==newTime){
+    return `<span class="old-session-time">${esc(oldTime)}</span><span class="new-session-time">${esc(newTime)}</span>`;
+  }
+  return `<span class="new-session-time">${esc(newTime)}</span>`;
+}
 function renderDays(){const dates=[...new Set(state.sessions.map(s=>s.session_date))].sort();daysGrid.innerHTML=dates.map(d=>{const ss=state.sessions.filter(s=>s.session_date===d),free=ss.reduce((a,s)=>a+Math.max(0,s.seats-bookedCount(s.id)),0);return `<button class="choice-card" data-date="${d}"><strong>${formatDate(d)}</strong><span>${ss.length} ժամ</span><div class="free-count">${free} ընդհանուր ազատ տեղ</div></button>`}).join('')||'<div class="empty-state">Դեռ օրեր չկան։</div>'}
-function renderSessions(){selectedSession=null;selectedSeat=null;seatSection.classList.add('hidden');const ss=state.sessions.filter(s=>s.session_date===selectedDate);sessionsGrid.innerHTML=ss.map(s=>`<button class="choice-card" data-session="${s.id}"><strong>${esc(s.session_time)}</strong><span>${s.seats} տեղ</span><div class="free-count">${Math.max(0,s.seats-bookedCount(s.id))} ազատ տեղ</div></button>`).join('')}
+function renderSessions(){selectedSession=null;selectedSeat=null;seatSection.classList.add('hidden');const ss=state.sessions.filter(s=>s.session_date===selectedDate);sessionsGrid.innerHTML=ss.map(s=>`<button class="choice-card" data-session="${s.id}"><strong class="session-time-display">${sessionTimeHtml(s)}</strong><span>${s.seats} տեղ</span><div class="free-count">${Math.max(0,s.seats-bookedCount(s.id))} ազատ տեղ</div></button>`).join('')}
 daysGrid.onclick=e=>{const b=e.target.closest('[data-date]');if(!b)return;selectedDate=b.dataset.date;daysGrid.querySelectorAll('[data-date]').forEach(x=>x.classList.toggle('active',x===b));renderSessions()};
 sessionsGrid.onclick=e=>{const b=e.target.closest('[data-session]');if(!b)return;selectedSession=state.sessions.find(s=>s.id===b.dataset.session);sessionsGrid.querySelectorAll('[data-session]').forEach(x=>x.classList.toggle('active',x===b));renderSeats()};
 function renderSeats(){seatSection.classList.remove('hidden');seatCountLabel.textContent=selectedSession.seats+' տեղ';seatMap.querySelectorAll('.seat-wrap').forEach(x=>x.remove());const bs=state.bookings.filter(b=>b.session_id===selectedSession.id);for(let i=1;i<=selectedSession.seats;i++){const a=Math.PI*2*(i-1)/selectedSession.seats-Math.PI/2,x=50+42*Math.cos(a),y=50+42*Math.sin(a),bk=bs.find(b=>b.seat_no===i);seatMap.insertAdjacentHTML('beforeend',`<div class="seat-wrap" style="left:${x}%;top:${y}%"><button class="seat ${bk?'booked':''}" data-seat="${i}" ${bk?'disabled':''}><span class="arm left"></span><span class="arm right"></span><span class="num">${i}</span></button>${bk?`<div class="booked-name">${esc(bk.employee_name)}</div>`:''}</div>`)}seatMap.querySelectorAll('.seat:not(.booked)').forEach(b=>b.onclick=()=>{selectedSeat=Number(b.dataset.seat);seatMap.querySelectorAll('.seat').forEach(x=>x.classList.toggle('selected',Number(x.dataset.seat)===selectedSeat));updateSummary()});updateSummary()}

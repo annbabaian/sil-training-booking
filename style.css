@@ -61,3 +61,19 @@
 .time-arrow{color:#64748b}
 .new-session-time{color:var(--blue);font-weight:950}
 .time-change-note{display:block;margin-top:5px;color:#b45309;font-weight:800;font-size:11px}
+.session-time-display{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:2px;
+}
+.old-session-time{
+  text-decoration:line-through;
+  opacity:.55;
+  font-size:.82em;
+  font-weight:600;
+}
+.new-session-time{
+  font-weight:700;
+}
+
